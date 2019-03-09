@@ -32,7 +32,7 @@ const UINT	FrameCount = 2;
 
 struct Vertex {
 	XMFLOAT3	position;
-	XMFLOAT4	color;
+	XMFLOAT2	uv;
 };
 
 // パイプラインオブジェクト
@@ -63,6 +63,7 @@ UINT64			g_fenceValue;
 
 // ビューポートのアスペクト比
 float	g_aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+//float	g_aspectRatio = 1.0f;
 
 // アダプタ情報
 bool	g_useWarpDevice = false;
@@ -275,8 +276,8 @@ BOOL Init(HWND hWnd)
 
 		// 頂点入力レイアウトを定義
 		D3D12_INPUT_ELEMENT_DESC	inputElementDescs[] = {
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,		0,  0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,			0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 		};
 
 		// グラフィックスパイプラインの状態オブジェクトを作成
@@ -344,16 +345,15 @@ BOOL Init(HWND hWnd)
 
 	// 頂点バッファを作成
 	{
+		//#TODO 三角形一つで描くというのもやってみたい　uvなどがめんどくさそうだけど
 		// ジオメトリを定義
 		Vertex	triangleVertices[] = {
-			//{ {  0.0f,   0.25f * g_aspectRatio, 0.0f },{ 1.0f, 0.0f, 0.0f, 1.0f } },
-			//{ {  0.25f, -0.25f * g_aspectRatio, 0.0f },{ 0.0f, 1.0f, 0.0f, 1.0f } },
-			//{ { -0.25f, -0.25f * g_aspectRatio, 0.0f },{ 0.0f, 0.0f, 1.0f, 1.0f } },
-			//{ {  0.0f,   0.5f  * g_aspectRatio, 0.0f },{ 1.0f, 1.0f, 1.0f, 1.0f } },
-			{ { -0.5f,   0.5f * g_aspectRatio, 0.0f },{ 1.0f, 0.0f, 0.0f, 1.0f } },
-			{ { 0.5f, 0.5f * g_aspectRatio, 0.0f },{ 0.0f, 1.0f, 0.0f, 1.0f } },
-			{ { -0.5f, -0.5f * g_aspectRatio, 0.0f },{ 0.0f, 0.0f, 1.0f, 1.0f } },
-			{ { 0.5f,   -0.5f  * g_aspectRatio, 0.0f },{ 1.0f, 1.0f, 1.0f, 1.0f } },
+			{ { -1.0f,  1.0f * g_aspectRatio, 0.0f },{ 0.0f, 0.0f } },
+			{ {  1.0f,  1.0f * g_aspectRatio, 0.0f },{ 1.0f, 0.0f } },
+			{ {  1.0f, -1.0f * g_aspectRatio, 0.0f },{ 1.0f, 1.0f } },
+			{ { -1.0f,  1.0f * g_aspectRatio, 0.0f },{ 0.0f, 0.0f } },
+			{ {  1.0f, -1.0f * g_aspectRatio, 0.0f },{ 1.0f, 1.0f } },
+			{ { -1.0f, -1.0f * g_aspectRatio, 0.0f },{ 0.0f, 1.0f } },
 		};
 
 		const UINT	vertexBufferSize = sizeof(triangleVertices);
@@ -477,10 +477,10 @@ BOOL Draw()
 	// バックバッファに描画
 	const float	clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	g_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-	g_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	g_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	g_commandList->IASetVertexBuffers(0, 1, &g_vertexBufferView);
 	//g_commandList->IASetIndexBuffer(&g_indexView);
-	g_commandList->DrawInstanced(4, 1, 0, 0);
+	g_commandList->DrawInstanced(6, 2, 0, 0);
 
 	// バックバッファを表示
 	{
