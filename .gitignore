@@ -18,3 +18,5 @@ Project/Debug/RayMarchingStudy_Debug.exe
 Project/Release/RayMarchingStudy.exe
 Project/Release/RayMarchingStudy.iobj
 *.ipdb
+Project/.vs/RayMarchingStudy/v15/ipch/AutoPCH/27091cdb65bc9043/MAIN.ipch
+*.cso

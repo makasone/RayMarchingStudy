@@ -1,3 +1,19 @@
+Texture2D<float4>	tex0		: register(t0);
+SamplerState		sampler0	: register(s0);
+
+//-------------------------------------------------------------------------------------
+struct VSInput
+{
+	float4	pos : POSITION;
+	float2	uv	: TEXCOORD0;
+};
+
+struct PSInput {
+	float4	position	: SV_POSITION;
+	float2	uv			: TEXCOORD0;
+};
+
+//----------------------------------------------------------------------------------------------
 #define PI	3.14159265359
 #define PI2	PI * 2.0
 #define XAxis float3(1.0, 0.0, 0.0)
@@ -31,20 +47,6 @@ struct DirectionalLight
 struct Scene
 {
 	DirectionalLight dirLight;
-};
-
-
-
-//-------------------------------------------------------------------------------------
-struct VSInput
-{
-	float4	pos : POSITION;
-	float2	uv	: TEXCOORD0;
-};
-
-struct PSInput {
-	float4	position	: SV_POSITION;
-	float2	uv			: TEXCOORD0;
 };
 
 //----------------------------------------------------------------------------------------------
@@ -88,7 +90,7 @@ float3x3 Rotate3D(float3 axis, float angle)
 {
 	//return float3x3(cos(angle) + axis.x * axis.x * (1.0 - cos(angle)), axis.x * axis.y * (1.0 - cos(angle))
 
-	//è”²‚«
+	//æ‰‹æŠœã
 	return float3x3(1.0, 0.0, 0.0,
 		0.0, 1.0, 0.0,
 		0.0, 0.0, 1.0) * cos(angle)
@@ -132,8 +134,8 @@ float Sigmoid(float x, float gain, float offsetX)
 	return (tanh(((x + offsetX)*gain) / 2.0) + 1.0) / 2.0;
 }
 
-//HSV -> RGB•ÏŠ·
-//ƒlƒbƒg‚É—‚¿‚Ä‚½À‘•‚»‚Ì‚Ü‚Ü
+//HSV -> RGBå¤‰æ›
+//ãƒãƒƒãƒˆã«è½ã¡ã¦ãŸå®Ÿè£…ãã®ã¾ã¾
 //https://qiita.com/masato_ka/items/c178a53c51364703d70b#_reference-6b1887cd1cd40aa64ace
 float3 HSVtoRGB(float x)
 {
@@ -230,7 +232,7 @@ float SdfBox(float3 currentRayPosition, float3 pos, float3 size)
 	// finally we get the distance to the box surface.
 	float3 distanceVec = abs(adjustedRayPosition) - size;
 	float maxDistance = max(distanceVec.x, max(distanceVec.y, distanceVec.z));
-	float dist = min(maxDistance, 0.0); //” ‚Ì’†‚ÉƒJƒƒ‰‚ª‚ ‚éê‡H‚½‚Ô‚ñ
+	float dist = min(maxDistance, 0.0); //ç®±ã®ä¸­ã«ã‚«ãƒ¡ãƒ©ãŒã‚ã‚‹å ´åˆï¼ŸãŸã¶ã‚“
 	float distanceToBoxSurface = dist + length(max(distanceVec, 0.0));
 	return distanceToBoxSurface;
 }
@@ -412,7 +414,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 
 	//float2 barScene = float2(Subtraction(sdfBar, sdfTube), 2.0);
 
-	//HexAnim Test@‚ß‚ñ‚Ç‚­‚³‚­‚È‚Á‚Ä‚â‚ß‚½
+	//HexAnim Testã€€ã‚ã‚“ã©ãã•ããªã£ã¦ã‚„ã‚ãŸ
 	//float2 hexSize = float2(1.0, 1.0);
 	//float sdfHex = SdfHex(currentRayPosition.xz, hexSize);
 	//float2 hex = float2(sdfHex, 2.0);
@@ -439,7 +441,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 	//float2 metaBall = float2(metaBallPositiveSdf, MATERIAL_TEST_REFLACT);
 
 	//Terrain
-	//float2 terrainUV = abs(currentRayPosition.xz + float2(9.0 + iTime, 10.0)); //10.0‚É‚·‚é‚Æ^‚Á•‚É‚È‚é@‚æ‚­‚í‚©‚ç‚ñ
+	//float2 terrainUV = abs(currentRayPosition.xz + float2(9.0 + iTime, 10.0)); //10.0ã«ã™ã‚‹ã¨çœŸã£é»’ã«ãªã‚‹ã€€ã‚ˆãã‚ã‹ã‚‰ã‚“
 	//float sdfTerrain = currentRayPosition.y + 1.0 - SdfTerrain(terrainUV) * 0.2;
 	//float2 terrain = float2(sdfTerrain, MATERIAL_OPACITY);
 
@@ -475,7 +477,7 @@ static const int HOW_MANY_STEPS_CAN_OUR_RAY_TAKE = 100;
 // normal of the surface. 
 float3 GetNormalOfSurface(in Ray ray, in float3 hitPos, float epsilon)
 {
-	// TODO ”÷¬—Ê‚ğ“®“I‚ÉŒˆ‚ß‚éÀŒ±@‚¢‚Ü‚¢‚¿
+	// TODO å¾®å°é‡ã‚’å‹•çš„ã«æ±ºã‚ã‚‹å®Ÿé¨“ã€€ã„ã¾ã„ã¡
 	//epsilon *= length(ray.start - positionOfHit);
 
 	return normalize(float3(
@@ -485,8 +487,8 @@ float3 GetNormalOfSurface(in Ray ray, in float3 hitPos, float epsilon)
 	));
 }
 
-//dFdx,dFdy‚Å–@ü‚ğŒvZ
-//¸“x‚Í’á‚­‚È‚é‚ªA‚í‚è‚Æ‚µ‚Á‚©‚è“®‚­
+//dFdx,dFdyã§æ³•ç·šã‚’è¨ˆç®—
+//ç²¾åº¦ã¯ä½ããªã‚‹ãŒã€ã‚ã‚Šã¨ã—ã£ã‹ã‚Šå‹•ã
 float3 GetNormalOfSurface_byDf(in float3 positionOfHit)
 {
 	float3 dx = ddx(positionOfHit);
@@ -574,7 +576,7 @@ HitInfo CheckRayHit(in Ray ray)
 }
 
 //----------------------------------------------------------------------------------------------------------
-//‹üÜ—¦ Index of Refraction
+//å±ˆæŠ˜ç‡ Index of Refraction
 #define IOR_AIR   1.0
 #define IOR_WATER 1.3333333333
 #define IOR_GLASS 1.5
@@ -729,13 +731,13 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 	float3 halfVector = normalize(scene.dirLight.direction + -hitInfo.ray.dir);
 	float dotVH = max(0.0, dot(scene.dirLight.direction, halfVector));
 
-	//•úËÆ“x <- •úË‹P“x * ƒRƒTƒCƒ“€
+	//æ”¾å°„ç…§åº¦ <- æ”¾å°„è¼åº¦ * ã‚³ã‚µã‚¤ãƒ³é …
 	float dotNL = max(0.0, dot(hitInfo.normal, scene.dirLight.direction));
 	float3 irradiance = scene.dirLight.color * dotNL;
 
-	//punctual light‚Ì‹­‚³‚ğ’²®
-	//irradiance *= PI * scene.dirLight.scale; //scale‚Í‚Ä‚«‚Æ[@‚±‚ê‚Å‚¢‚¢‚Ì‚©
-	irradiance *= scene.dirLight.scale; //specular‚Å‚µ‚©g‚í‚È‚­‚È‚Á‚½‚Ì‚ÅÁ‚µ‚½
+	//punctual lightã®å¼·ã•ã‚’èª¿æ•´
+	//irradiance *= PI * scene.dirLight.scale; //scaleã¯ã¦ãã¨ãƒ¼ã€€ã“ã‚Œã§ã„ã„ã®ã‹
+	irradiance *= scene.dirLight.scale; //specularã§ã—ã‹ä½¿ã‚ãªããªã£ãŸã®ã§æ¶ˆã—ãŸ
 
 	//roughness
 	//mouse pos to roughness
@@ -786,7 +788,7 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 		float3 refracted = refract(ray.dir, hitInfo.normal, 1.0 / refractionIndex);
 		float lightDotReflect = max(0.0, dot(reflected, scene.dirLight.color));
 
-		//“ñ‰ñ‹üÜ@‚¿‚å‚Á‚Æ‚Ä‚«‚Æ[
+		//äºŒå›å±ˆæŠ˜ã€€ã¡ã‚‡ã£ã¨ã¦ãã¨ãƒ¼
 		Ray reflectedRay = { hitInfo.pos, reflected };
 		HitInfo secondHit = CheckRayHit(reflectedRay);
 		reflected = reflect(secondHit.ray.dir, secondHit.normal);
@@ -796,7 +798,7 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 		float fresnel = FresnelSchlick(dotVH, f0);
 		float3 specular = fresnel * scene.dirLight.color * lightDotReflect;
 
-		//‚Ä‚«‚Æ[‚È’²®
+		//ã¦ãã¨ãƒ¼ãªèª¿æ•´
 		color = /*texture(iChannel1, refracted).rgb + */ float3(0.0, 0.0, 0.0) + specular * 0.2 + float3(0.0, 0.00, 0.06);
 
 	}
@@ -817,7 +819,7 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 		float fresnel = FresnelSchlick(dotVH, f0);
 		float3 specular = fresnel * scene.dirLight.color * lightDotReflect;
 
-		//“ñ‰ñ‹üÜ@‚¿‚å‚Á‚Æ‚Ä‚«‚Æ[
+		//äºŒå›å±ˆæŠ˜ã€€ã¡ã‚‡ã£ã¨ã¦ãã¨ãƒ¼
 		//color = ColorTheWorld(secondHit, refractedRay, scene);
 		color = /*texture(iChannel1, refracted).rgb*/float3(0.0, 0.0, 0.0) + specular;
 
@@ -831,8 +833,8 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 		//Lambert
 		float3 balloonColor = float3(0.5, 0.5, 0.5);
 		float3 testColor = balloonColor * BRDFDiffuseLambert(1.0);
-		//punctual light‚Ì‹­‚³‚ğ’²®
-		irradiance *= PI; //scale‚Í‚Ä‚«‚Æ[@‚±‚ê‚Å‚¢‚¢‚Ì‚©
+		//punctual lightã®å¼·ã•ã‚’èª¿æ•´
+		irradiance *= PI; //scaleã¯ã¦ãã¨ãƒ¼ã€€ã“ã‚Œã§ã„ã„ã®ã‹
 		color = irradiance * testColor;
 
 	}
@@ -843,42 +845,42 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 	}
 	else if (hitInfo.material == MATERIAL_TEST_CAUSTICS) {
 		////Caustics
-		////–³—‚â‚èÀ‘•‚µ‚Ä‚İ‚é
-		////“ñ‚Â‚Ì•½s‚È•½–Ê‚ªã‚Æ‰º‚Å•À‚ñ‚Å‚¢‚éA‚Æ‚·‚é
-		////ã‚Í…–ÊA‰º‚Í’ê
-		////’ê‚É“–‚½‚éŒõ‚ğŒvZ‚µ‚Ä‚İ‚é
+		////ç„¡ç†ã‚„ã‚Šå®Ÿè£…ã—ã¦ã¿ã‚‹
+		////äºŒã¤ã®å¹³è¡Œãªå¹³é¢ãŒä¸Šã¨ä¸‹ã§ä¸¦ã‚“ã§ã„ã‚‹ã€ã¨ã™ã‚‹
+		////ä¸Šã¯æ°´é¢ã€ä¸‹ã¯åº•
+		////åº•ã«å½“ãŸã‚‹å…‰ã‚’è¨ˆç®—ã—ã¦ã¿ã‚‹
 
 
-		////•½–Ê‚©‚çƒJƒƒ‰•ûŒü‚Éˆê“xƒŒƒC‚ğ”ò‚Î‚µ‚ÄA…–Ê‚ÌˆÊ’u‚ğŒvZ
+		////å¹³é¢ã‹ã‚‰ã‚«ãƒ¡ãƒ©æ–¹å‘ã«ä¸€åº¦ãƒ¬ã‚¤ã‚’é£›ã°ã—ã¦ã€æ°´é¢ã®ä½ç½®ã‚’è¨ˆç®—
 
-		////ŒõŒ¹‚©‚çƒ‰ƒCƒeƒBƒ“ƒO‚·‚é…’ê‚Ö‚ÌƒxƒNƒgƒ‹@ˆÊ’u‚Í‚Ä‚«‚Æ[
-		//float3 lightPos = float3(0.0, 10.0, 0.0); //…–Ê‚æ‚è‚à‰“‚­‚È‚¢‚Æ•Ï‚È‚±‚Æ‚É‚È‚é
+		////å…‰æºã‹ã‚‰ãƒ©ã‚¤ãƒ†ã‚£ãƒ³ã‚°ã™ã‚‹æ°´åº•ã¸ã®ãƒ™ã‚¯ãƒˆãƒ«ã€€ä½ç½®ã¯ã¦ãã¨ãƒ¼
+		//float3 lightPos = float3(0.0, 10.0, 0.0); //æ°´é¢ã‚ˆã‚Šã‚‚é ããªã„ã¨å¤‰ãªã“ã¨ã«ãªã‚‹
 		//float3 lightRay = normalize(hitInfo.pos - lightPos);
 
-		////•ÏŒ`‘O‚Ì…–Ê‚ÌˆÊ’u@ˆÊ’u‚Í‚Ä‚«‚Æ[
+		////å¤‰å½¢å‰ã®æ°´é¢ã®ä½ç½®ã€€ä½ç½®ã¯ã¦ãã¨ãƒ¼
 		//float3 stopSurfacePos = hitInfo.pos - float3(0.0, 1.0, 0.0);
 
-		////•ÏŒ`‘O‚Ì…–Ê‚ğ‹üÜ‚µ‚½ƒŒƒC
+		////å¤‰å½¢å‰ã®æ°´é¢ã‚’å±ˆæŠ˜ã—ãŸãƒ¬ã‚¤
 		//float ior = IOR_AIR / IOR_WATER;
-		//float3 stopSurfaceRefractedRay = refract(lightRay, YAxis, ior); //–@ü‚Í‚Ä‚«‚Æ[‚Éã•ûŒü
+		//float3 stopSurfaceRefractedRay = refract(lightRay, YAxis, ior); //æ³•ç·šã¯ã¦ãã¨ãƒ¼ã«ä¸Šæ–¹å‘
 
-		//															  //‹üÜ‚µ‚½ƒŒƒC‚Æ…’ê‚Æ‚ÌŒğ“_
-		//															  //TODO À‘•ŠÔˆá‚Á‚Ä‚éc@³‚µ‚¢’ê‚ÌˆÊ’u‚ªæ‚ê‚Ä‚È‚¢
+		//															  //å±ˆæŠ˜ã—ãŸãƒ¬ã‚¤ã¨æ°´åº•ã¨ã®äº¤ç‚¹
+		//															  //TODO å®Ÿè£…é–“é•ã£ã¦ã‚‹â€¦ã€€æ­£ã—ã„åº•ã®ä½ç½®ãŒå–ã‚Œã¦ãªã„
 		//float stopHit = SdfPlane(stopSurfacePos, YAxis, 2.0);
 		//float3 beforePos = stopSurfacePos + stopSurfaceRefractedRay * stopHit;
 
-		////•ÏŒ`Œã‚Ì…–Ê‚ÌˆÊ’u
+		////å¤‰å½¢å¾Œã®æ°´é¢ã®ä½ç½®
 		//float3 waveSurfacePos = stopSurfacePos + float3(0.0, WaterWave(stopSurfacePos), 0.0);
 
-		////•ÏŒ`Œã‚Ì…–Ê‚ÅŒõü‚ğ‹üÜ
+		////å¤‰å½¢å¾Œã®æ°´é¢ã§å…‰ç·šã‚’å±ˆæŠ˜
 		//float epsilon = 0.0001;
 		//Ray afterRay = Ray(lightPos, lightRay);
-		//float3 waveNormal = GetNormalOfSurface(afterRay, waveSurfacePos, epsilon); //‚¤‚Ü‚­ŒvZ‚Å‚«‚Ä‚È‚¢‚Á‚Û‚¢
+		//float3 waveNormal = GetNormalOfSurface(afterRay, waveSurfacePos, epsilon); //ã†ã¾ãè¨ˆç®—ã§ãã¦ãªã„ã£ã½ã„
 		//float3 afterRefractedRay = refract(lightRay, waveNormal, ior);
 		//float afterHit = SdfPlane(waveSurfacePos, YAxis, 2.0);
 		//float3 afterPos = waveSurfacePos + afterRefractedRay * stopHit;
 
-		////•ÏŒ`‘OŒã‚Å‚Ì–ÊÏ‚Ì•Ï‰»—Ê‚ğ–¾‚é‚³‚Ì”ä—¦‚É
+		////å¤‰å½¢å‰å¾Œã§ã®é¢ç©ã®å¤‰åŒ–é‡ã‚’æ˜ã‚‹ã•ã®æ¯”ç‡ã«
 		//float beforeArea = length(dFdx(beforePos)) * length(dFdy(beforePos));
 		//float afterArea = length(dFdx(afterPos)) * length(dFdy(afterPos));
 
@@ -917,7 +919,6 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 	else if (hitInfo.material == 0.0) {
 		//Cubemap
 		//color = texture(iChannel1, ray.dir).rgb;
-
 	}
 	else if (hitInfo.material == MATERIAL_TEST_FAR) {
 		//float3 p = float3(0.0, 0.0, 0.0);
@@ -979,15 +980,15 @@ PSInput VSMain(VSInput input)
 	PSInput	result;
 
 	result.position = input.pos;
-	result.uv = float2(input.uv.x, 1.0f - input.uv.y);	//ShaderToy‚ÌÀ•WŒn‚É‡‚í‚¹‚½@‚à‚¿‚ë‚ñcpp‚Ì’¸“_‘¤‚Ì‰Šú’l‚Å’²®‚µ‚Ä‚à‚æ‚¢
+	result.uv = float2(input.uv.x, 1.0f - input.uv.y);	//ShaderToyã®åº§æ¨™ç³»ã«åˆã‚ã›ãŸã€€ã‚‚ã¡ã‚ã‚“cppã®é ‚ç‚¹å´ã®åˆæœŸå€¤ã§èª¿æ•´ã—ã¦ã‚‚ã‚ˆã„
 
 	return result;
 }
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
-	#define WINDOW_WIDTH	1280
-	#define WINDOW_HEIGHT	720
+	//#define WINDOW_WIDTH	1280
+	//#define WINDOW_HEIGHT	720
 	//float	g_aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
 	//float2 inScreenPos = NormalizingCoordinated(input.uv, float2(1, 1/g_aspectRatio)) - float2(0.0, 0.5);
 	
@@ -1017,19 +1018,20 @@ float4 PSMain(PSInput input) : SV_TARGET
 	// but once the full scene is built, tryin playing with it to understand inherently how it works
 	float3 rayComingOutOfEyeDirection = normalize(mul(eyeTransformationMtx, float3(inScreenPos.xy, 2.0f)));
 
-	//’Êí•`‰æ
+	//é€šå¸¸æç”»
 	Ray ray = { camPos, rayComingOutOfEyeDirection };
 	HitInfo hitInfo = CheckRayHit(ray);
 	float3 color = ColorTheWorld(hitInfo, ray, scene);
 
-	//MSAA‚à‚Ç‚«@4ƒTƒ“ƒvƒ‹
+	//MSAAã‚‚ã©ãã€€4ã‚µãƒ³ãƒ—ãƒ«
 	float epsilon = 0.001;
 	//color = MSAA(scene, ray, color, hitInfo, epsilon);
 
 	//color = float4(DebugRenderMode(color, hitInfo, color, DEBUG_RENDER_MODE_NONE), 1.0);
-	return float4(color, 0.0);
+	//return float4(color, 0.0);
+	return tex0.Sample(sampler0, input.uv);
 
-	//#TODO ƒfƒoƒbƒOƒ‚[ƒh‚Æ‚µ‚Ä‚¤‚Ü‚­ˆµ‚¢‚½‚¢
+	//#TODO ãƒ‡ãƒãƒƒã‚°ãƒ¢ãƒ¼ãƒ‰ã¨ã—ã¦ã†ã¾ãæ‰±ã„ãŸã„
 	//return float4(inScreenPos, 0.0, 0.0);
 	//return float4(input.uv, 0.0, 0.0);
 }
