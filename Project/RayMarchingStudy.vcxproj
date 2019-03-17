@@ -26,13 +26,50 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">5.0</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">PSMain</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Source\main.cpp" />
+    <ClCompile Include="..\Source\TexReader\BC.cpp" />
+    <ClCompile Include="..\Source\TexReader\BC4BC5.cpp" />
+    <ClCompile Include="..\Source\TexReader\BC6HBC7.cpp" />
+    <ClCompile Include="..\Source\TexReader\BCDirectCompute.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexCompress.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexCompressGPU.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexConvert.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexD3D11.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexD3D12.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexDDS.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexFlipRotate.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexHDR.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexImage.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexMipmaps.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexMisc.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexNormalMaps.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexPMAlpha.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexResize.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexTGA.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexUtil.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexWIC.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\Resource\texture.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Source\d3dx12.h" />
+    <ClInclude Include="..\Source\TexReader\BC.h" />
+    <ClInclude Include="..\Source\TexReader\BCDirectCompute.h" />
+    <ClInclude Include="..\Source\TexReader\d3dx12.h" />
+    <ClInclude Include="..\Source\TexReader\DDS.h" />
+    <ClInclude Include="..\Source\TexReader\DirectXTex.h" />
+    <ClInclude Include="..\Source\TexReader\DirectXTexP.h" />
+    <ClInclude Include="..\Source\TexReader\Filters.h" />
+    <ClInclude Include="..\Source\TexReader\scoped.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Source\TexReader\DirectXTex.inl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

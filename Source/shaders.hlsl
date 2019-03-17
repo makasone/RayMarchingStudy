@@ -1,5 +1,9 @@
 Texture2D<float4>	tex0		: register(t0);
+//Texture2D<float4>	tex1		: register(t1);
+TextureCube texCube : register(t1);
+
 SamplerState		sampler0	: register(s0);
+
 
 //-------------------------------------------------------------------------------------
 struct VSInput
@@ -919,6 +923,7 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 	else if (hitInfo.material == 0.0) {
 		//Cubemap
 		//color = texture(iChannel1, ray.dir).rgb;
+		color = texCube.Sample(sampler0, ray.dir);
 	}
 	else if (hitInfo.material == MATERIAL_TEST_FAR) {
 		//float3 p = float3(0.0, 0.0, 0.0);
@@ -1001,7 +1006,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 	//float3 camPos = float3(1.5 * sin(1.5 * iTime), 1.0, 3.0);
 
 	float3 camPos = float3( 0., 1, 6.);
-	float3 camLookAt = float3(0., 0.5, 0.);
+	float3 camLookAt = float3(0., 1.5, 0.);
 	float3x3 eyeTransformationMtx = CalculateEyeRayTransformationMatrix(camPos, camLookAt, 0.);
 
 	//scene
@@ -1028,8 +1033,10 @@ float4 PSMain(PSInput input) : SV_TARGET
 	//color = MSAA(scene, ray, color, hitInfo, epsilon);
 
 	//color = float4(DebugRenderMode(color, hitInfo, color, DEBUG_RENDER_MODE_NONE), 1.0);
-	//return float4(color, 0.0);
-	return tex0.Sample(sampler0, input.uv);
+	return float4(color, 0.0);
+	//return tex0.Sample(sampler0, input.uv);
+	//return tex1.Sample(sampler0, input.uv);
+	//return texCube.Sample(sampler0, ray.dir);
 
 	//#TODO デバッグモードとしてうまく扱いたい
 	//return float4(inScreenPos, 0.0, 0.0);

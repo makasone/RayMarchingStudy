@@ -1,32 +1,124 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="ソース ファイル">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="ヘッダー ファイル">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
     <Filter Include="リソース ファイル">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="..\Source\shaders.hlsl">
-      <Filter>ソース ファイル</Filter>
-    </FxCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\Source\main.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
+    <Filter Include="TexReader">
+      <UniqueIdentifier>{71a762ef-f47d-4db9-b493-ff8c8aa7257a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\Resource\texture.bmp">
       <Filter>リソース ファイル</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Source\d3dx12.h" />
+    <ClInclude Include="..\Source\TexReader\DirectXTex.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\TexReader\DirectXTexP.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\TexReader\DDS.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\TexReader\scoped.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\TexReader\Filters.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\TexReader\BCDirectCompute.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\TexReader\d3dx12.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\TexReader\BC.h">
+      <Filter>TexReader</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Source\main.cpp" />
+    <ClCompile Include="..\Source\TexReader\DirectXTexDDS.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexCompressGPU.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexConvert.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexD3D11.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexD3D12.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexFlipRotate.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexHDR.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexImage.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexMipmaps.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexMisc.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexNormalMaps.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexPMAlpha.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexResize.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexTGA.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexUtil.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexWIC.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\DirectXTexCompress.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\BC6HBC7.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\BCDirectCompute.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\BC.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\TexReader\BC4BC5.cpp">
+      <Filter>TexReader</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\Source\shaders.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Source\TexReader\DirectXTex.inl">
+      <Filter>TexReader</Filter>
+    </None>
   </ItemGroup>
 </Project>

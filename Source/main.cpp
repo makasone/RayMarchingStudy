@@ -11,19 +11,24 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #include <DirectXMath.h>
 
+#include "TexReader/DirectXTex.h"
+
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
 #define WINDOW_CLASS	_T("DirectX12Test")
 #define WINDOW_TITLE	WINDOW_CLASS
 #define	WINDOW_STYLE	WS_OVERLAPPEDWINDOW
-#define WINDOW_WIDTH	1280
-#define WINDOW_HEIGHT	720
+//#define WINDOW_WIDTH	1280
+//#define WINDOW_HEIGHT	720
+#define WINDOW_WIDTH	512
+#define WINDOW_HEIGHT	512
 
 // ウィンドウプロシージャ
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam);
 // 初期化
 BOOL Init(HWND hWnd);
+BOOL InitTexture(HWND hWnd);
 // 描画
 BOOL Draw();
 // 
@@ -35,6 +40,23 @@ struct Vertex {
 	XMFLOAT3	position;
 	XMFLOAT2	uv;
 };
+
+//--------------------------------------------------------------------------------------
+#pragma pack(push,1)
+struct SimpleVertex
+{
+	XMFLOAT4 Pos;
+	XMFLOAT4 Tex;
+};
+
+struct CBArrayControl
+{
+	float Index;
+	float pad[3];
+};
+#pragma pack(pop)
+
+D3D_FEATURE_LEVEL					g_featureLevel = D3D_FEATURE_LEVEL_11_0;
 
 // パイプラインオブジェクト
 D3D12_VIEWPORT						g_viewport = { 0.0f, 0.0f, (float)WINDOW_WIDTH, (float)WINDOW_HEIGHT, 0.0f, 1.0f };
@@ -58,7 +80,10 @@ D3D12_INDEX_BUFFER_VIEW		g_indexBufferView;
 
 // テクスチャー
 ComPtr<ID3D12Resource>			g_rTexture;
+ComPtr<ID3D12Resource>			g_rTestTexture;
+ComPtr<ID3D12Resource>			g_rCubeMapTexture;
 ComPtr<ID3D12DescriptorHeap>	g_dhTexture;
+ComPtr<ID3D12GraphicsCommandList>	g_texCommandList;
 
 // 同期オブジェクト
 UINT				g_frameIndex = 0;
@@ -169,10 +194,11 @@ BOOL Init(HWND hWnd)
 	ComPtr<IDXGIFactory4>	factory;
 	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)))) return FALSE;
 
+	//#TODO デフォルトがなかったらfall backしたほうがよい？
 	if (g_useWarpDevice) {
 		ComPtr<IDXGIAdapter>	warpAdapter;
 		if (FAILED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)))) return FALSE;
-		if (FAILED(D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&g_device)))) return FALSE;
+		if (FAILED(D3D12CreateDevice(warpAdapter.Get(), g_featureLevel, IID_PPV_ARGS(&g_device)))) return FALSE;
 	}
 	else {
 		ComPtr<IDXGIAdapter1>	hardwareAdapter;
@@ -184,12 +210,12 @@ BOOL Init(HWND hWnd)
 			adapter->GetDesc1(&desc);
 			if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) continue;
 			// アダプタがDirectX12に対応しているか確認
-			if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr))) break;
+			if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), g_featureLevel, _uuidof(ID3D12Device), nullptr))) break;
 		}
 
 		hardwareAdapter = adapter.Detach();
 
-		if (FAILED(D3D12CreateDevice(hardwareAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&g_device)))) return FALSE;
+		if (FAILED(D3D12CreateDevice(hardwareAdapter.Get(), g_featureLevel, IID_PPV_ARGS(&g_device)))) return FALSE;
 	}
 
 	// コマンドキューを作成
@@ -248,13 +274,14 @@ BOOL Init(HWND hWnd)
 
 	// ルートシグネチャを作成
 	{
-		//テクスチャを使うための作成
+		//テクスチャを使うための設定
 		D3D12_DESCRIPTOR_RANGE		descriptorRange = {};
-		descriptorRange.NumDescriptors = 1;
+		descriptorRange.NumDescriptors = 1 + 1;
 		descriptorRange.BaseShaderRegister = 0;
 		descriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+		//パラメータ　現状はデスクリプタテーブルのみ
 		D3D12_ROOT_PARAMETER		rootParameter = {};
 		rootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 		rootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -376,6 +403,7 @@ BOOL Init(HWND hWnd)
 		psoDesc.NumRenderTargets = 1;
 		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		psoDesc.SampleDesc.Count = 1;
+
 		if (FAILED(g_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&g_pipelineState)))) {
 			return FALSE;
 		}
@@ -472,6 +500,16 @@ BOOL Init(HWND hWnd)
 	}
 
 	// テクスチャ関係の初期化
+	if (!InitTexture(hWnd)) {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+// テクスチャを初期化
+BOOL InitTexture(HWND hWnd)
+{
 	{
 		// ビットマップファイルを読み込み
 		// (DDB＆GetPixelでピクセルデータを読み込む簡易版なのでアルファ値には対応してません)
@@ -524,7 +562,7 @@ BOOL Init(HWND hWnd)
 
 		// テクスチャー用の記述子ヒープを作成
 		D3D12_DESCRIPTOR_HEAP_DESC	descriptorHeapDesc = {};
-		descriptorHeapDesc.NumDescriptors = 1;
+		descriptorHeapDesc.NumDescriptors = 1 + 1;	//t0,t1ということ　わかりづらいのでいい感じにしたい
 		descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 		descriptorHeapDesc.NodeMask = 0;
@@ -550,9 +588,7 @@ BOOL Init(HWND hWnd)
 		if (FAILED(g_rTexture->WriteToSubresource(0, &box, &pixel[0], sizeof(uint32_t)*bmp.bmWidth, sizeof(uint32_t)*bmp.bmWidth*bmp.bmHeight))) {
 			return FALSE;
 		}
-
 	}
-
 
 	// 同期オブジェクトを作成してリソースがGPUにアップロードされるまで待機
 	{
@@ -568,6 +604,142 @@ BOOL Init(HWND hWnd)
 		if (!WaitForPreviousFrame()) return FALSE;
 	}
 
+	//環境マップ読み込み
+	{
+		wchar_t ddsFileName[] = L"../Resource/uffizi.dds";
+		TexMetadata mdata;
+		HRESULT hr = GetMetadataFromDDSFile(ddsFileName, DDS_FLAGS_NONE, mdata);
+		if (FAILED(hr))
+		{
+			//swprintf_s(buff, L"ファイルの読み込みに失敗しました　Failed to open texture file\n\nFilename = %ls\nHRESULT %08X", lpCmdLine, hr);
+			MessageBox(hWnd, _T("ファイルの読み込みに失敗しました"), _T("GetMetadataFromDDSFile"), MB_OK | MB_ICONEXCLAMATION);
+			return FALSE;
+		}
+
+		switch (mdata.format)
+		{
+		case DXGI_FORMAT_BC6H_TYPELESS:
+		case DXGI_FORMAT_BC6H_UF16:
+		case DXGI_FORMAT_BC6H_SF16:
+		case DXGI_FORMAT_BC7_TYPELESS:
+		case DXGI_FORMAT_BC7_UNORM:
+		case DXGI_FORMAT_BC7_UNORM_SRGB:
+			if (g_featureLevel < D3D_FEATURE_LEVEL_11_0)
+			{
+				wchar_t buff[2048] = {};
+				swprintf_s(buff, L"BC6H/BC7 requires DirectX 11 hardware\n\nFilename = %ls\nDXGI Format %d\nFeature Level %d", ddsFileName, mdata.format, g_featureLevel);
+				MessageBoxW(nullptr, buff, L"DDSView", MB_OK | MB_ICONEXCLAMATION);
+				return 0;
+			}
+			break;
+
+		default:
+		{
+			//DX12にはないみたい
+			//UINT flags = 0;
+			//hr = g_device->CheckFormatSupport(mdata.format, &flags);
+			//if (FAILED(hr) || !(flags & (D3D11_FORMAT_SUPPORT_TEXTURE1D | D3D11_FORMAT_SUPPORT_TEXTURE2D | D3D11_FORMAT_SUPPORT_TEXTURE3D)))
+			//{
+			//	wchar_t buff[2048] = {};
+			//	swprintf_s(buff, L"Format not supported by DirectX hardware\n\nFilename = %ls\nDXGI Format %d\nFeature Level %d\nHRESULT = %08X", lpCmdLine, mdata.format, g_featureLevel, hr);
+			//	MessageBoxW(nullptr, buff, L"DDSView", MB_OK | MB_ICONEXCLAMATION);
+			//	return 0;
+			//}
+		}
+		break;
+		}
+
+		ScratchImage image;
+		hr = LoadFromDDSFile(ddsFileName, DDS_FLAGS_NONE, &mdata, image);
+		if (FAILED(hr))
+		{
+			wchar_t buff[2048] = {};
+			swprintf_s(buff, L"Failed to load texture file\n\nFilename = %ls\nHRESULT %08X", ddsFileName, hr);
+			MessageBoxW(nullptr, buff, L"DDSView", MB_OK | MB_ICONEXCLAMATION);
+			return 0;
+		}
+
+		//テクスチャ用のリソースを作成
+		D3D12_HEAP_PROPERTIES	heapProperties = {};
+		heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM;
+		heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+		heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+		heapProperties.CreationNodeMask = 1;
+		heapProperties.VisibleNodeMask = 1;
+
+		D3D12_RESOURCE_DESC		resourceDesc = {};
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		resourceDesc.Width = mdata.width;
+		resourceDesc.Height = mdata.height;
+		resourceDesc.DepthOrArraySize = 6;
+		resourceDesc.MipLevels = 1;
+		resourceDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		resourceDesc.SampleDesc.Count = 1;
+		resourceDesc.SampleDesc.Quality = 0;
+		resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+		if (FAILED(g_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&g_rTestTexture)))) {
+			return FALSE;
+		}
+
+		// テクスチャー用のシェーダーリソースビューを作成
+		//#TODO そのまま書いているので、もう少し良い感じに
+		D3D12_CPU_DESCRIPTOR_HANDLE		cpuDescriptorHandle = {};
+		D3D12_SHADER_RESOURCE_VIEW_DESC	shaderResourceViewDesc = {};
+		shaderResourceViewDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+		//shaderResourceViewDesc.TextureCubeArray.NumCubes = resourceDesc.DepthOrArraySize / 6;
+		shaderResourceViewDesc.Texture2D.MipLevels = 1;
+		shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+		shaderResourceViewDesc.Texture2D.PlaneSlice = 0;
+		shaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0F;
+		shaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		cpuDescriptorHandle = g_dhTexture->GetCPUDescriptorHandleForHeapStart();
+		cpuDescriptorHandle.ptr += g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);;
+		g_device->CreateShaderResourceView(g_rTestTexture.Get(), &shaderResourceViewDesc, cpuDescriptorHandle);
+
+		// 画像データをサブリソースへコピー
+		//UpdateSubresourcesでやったら簡単？
+		for (int i = 0; i < 6; i++) {
+			const Image* pImage = image.GetImage(0, i, 0);
+			D3D12_BOX	box = { 0, 0, 0, (UINT)pImage->width, (UINT)pImage->height, 1 };
+			if (FAILED(g_rTestTexture->WriteToSubresource(i, &box, pImage->pixels, pImage->rowPitch, pImage->slicePitch))) {
+				return FALSE;
+			}
+		}
+
+		//g_texCommandList->Close();
+		//ID3D12CommandList	*ppCommandLists[] = { g_texCommandList.Get() };
+		//g_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	}
+
+	// 同期オブジェクトを作成してリソースがGPUにアップロードされるまで待機
+	{
+		if (FAILED(g_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fence)))) return FALSE;
+		g_fenceValue = 1;
+
+		// フレーム同期に使用するイベントハンドラを作成
+		g_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		if (g_fenceEvent == nullptr) {
+			if (FAILED(HRESULT_FROM_WIN32(GetLastError()))) return FALSE;
+		}
+
+		if (!WaitForPreviousFrame()) return FALSE;
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	return TRUE;
 }
 
@@ -581,11 +753,12 @@ BOOL Draw()
 	g_commandList->RSSetViewports(1, &g_viewport);
 	g_commandList->RSSetScissorRects(1, &g_scissorRect);
 
-	// テクスチャーをシェーダーのレジスタに設定(t0)
-	ID3D12DescriptorHeap* descriptorHeap[] = { g_dhTexture.Get() };
-	g_commandList->SetDescriptorHeaps(_countof(descriptorHeap), descriptorHeap);
-	g_commandList->SetGraphicsRootDescriptorTable(0, g_dhTexture->GetGPUDescriptorHandleForHeapStart());
-
+	// テクスチャーをシェーダーのレジスタに設定
+	{
+		ID3D12DescriptorHeap* descriptorHeap[] = { g_dhTexture.Get() };
+		g_commandList->SetDescriptorHeaps(_countof(descriptorHeap), descriptorHeap);
+		g_commandList->SetGraphicsRootDescriptorTable(0, g_dhTexture->GetGPUDescriptorHandleForHeapStart());
+	}
 
 	// バックバッファをレンダリングターゲットとして使用
 	{
