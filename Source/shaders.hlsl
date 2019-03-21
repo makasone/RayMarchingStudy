@@ -6,6 +6,12 @@ SamplerState		sampler0	: register(s0);
 
 
 //-------------------------------------------------------------------------------------
+cbuffer System : register(b0)
+{
+	float g_time;
+
+}
+
 struct VSInput
 {
 	float4	pos : POSITION;
@@ -374,7 +380,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 	//Twist Test
 	//float2 twistedYTorusRadius = float2(2.0, 0.6);
 	//float3 twistedYTourusPos = currentRayPosition + float3(0.0, -0.0, 4.0);
-	//float twist = 2.0; //iTime
+	//float twist = 2.0; //g_time
 	//float sdfTwistedYTorus = SdfTorus(TwistY(twistedYTourusPos, twist), twistedYTorusRadius);
 	//float2 twistedYTorus = float2(sdfTwistedYTorus, 1.0);
 
@@ -433,8 +439,8 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 
 	//Metaball(Sphere Tracing), SoftMin Test
 	//float metaBallRadius = 0.5;
-	//float3 metaBallPos1 = float3(.0, sin(iTime), 0.0);
-	//float3 metaBallPos2 = float3(.0, cos(iTime), 0.0);
+	//float3 metaBallPos1 = float3(.0, sin(g_time), 0.0);
+	//float3 metaBallPos2 = float3(.0, cos(g_time), 0.0);
 	//float metaBallSoftness = 0.5;
 	//float metaBallPositiveSdf = SoftMin(SdfSphere(currentRayPosition, metaBallRadius, metaBallPos1),
 	//                                      SdfSphere(currentRayPosition, metaBallRadius, metaBallPos2), metaBallSoftness);
@@ -445,7 +451,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 	//float2 metaBall = float2(metaBallPositiveSdf, MATERIAL_TEST_REFLACT);
 
 	//Terrain
-	//float2 terrainUV = abs(currentRayPosition.xz + float2(9.0 + iTime, 10.0)); //10.0にすると真っ黒になる　よくわからん
+	//float2 terrainUV = abs(currentRayPosition.xz + float2(9.0 + g_time, 10.0)); //10.0にすると真っ黒になる　よくわからん
 	//float sdfTerrain = currentRayPosition.y + 1.0 - SdfTerrain(terrainUV) * 0.2;
 	//float2 terrain = float2(sdfTerrain, MATERIAL_OPACITY);
 
@@ -905,7 +911,7 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 
 		//float3 wavePos = float3(0.0, 0.0, 0.0);
 		//float distance = 0.0;
-		//float2 dxdy = gradwave(wavePos.x, wavePos.y, iTime);
+		//float2 dxdy = gradwave(wavePos.x, wavePos.y, g_time);
 
 		//float3 intercept = line_plane_intercept(
 		//	wavePos,
@@ -1000,12 +1006,12 @@ float4 PSMain(PSInput input) : SV_TARGET
 	float2 inScreenPos = NormalizingCoordinated(input.uv, float2(1, 1));
 
 	//move camera
-	//float angle = 0.2 * iTime; float3 camPos = float3(5.0 * sin(angle), 2.5 * cos(0.4 * angle) + 4.0, 5.0 * cos(angle));
+	float angle = 0.2 * g_time; float3 camPos = float3(10.0 * sin(angle), 2.5 * cos(0.4 * angle), 10.0 * cos(angle));
 
 	//rotate camera
-	//float3 camPos = float3(1.5 * sin(1.5 * iTime), 1.0, 3.0);
+	//float3 camPos = float3(1.5 * sin(1.5 * g_time), 1.0, 6.0);
 
-	float3 camPos = float3( 0., 1, 6.);
+	//float3 camPos = float3( 0., 1, 6.);
 	float3 camLookAt = float3(0., 1.5, 0.);
 	float3x3 eyeTransformationMtx = CalculateEyeRayTransformationMatrix(camPos, camLookAt, 0.);
 
