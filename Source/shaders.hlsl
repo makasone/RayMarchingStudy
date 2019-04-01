@@ -213,6 +213,24 @@ float Subtraction(float sdf1, float sdf2)
 	return max(sdf1, -sdf2);
 }
 
+//https://www.shadertoy.com/view/3dXXDN
+//#TODO よくわかってない
+float lengthN(float2 p, float n)
+{
+	p = pow(abs(p), float2(n, n));
+	return pow(p.x + p.y, 1.0 / n);
+}
+
+//https://www.shadertoy.com/view/3dXXDN
+//#TODO よくわかってない
+float3 torusKnot(float t)
+{
+	t *= 6.283;
+	float3 p = 0.3*float3(cos(t*7.0), sin(t*7.0), 0);
+	p.x += 1.5;
+	p.xz = mul(p.xz, Rotate(t*2.0));
+	return p;
+}
 
 //----------------------------------------------------------------------------------------------
 //Signed Distance Field
@@ -245,6 +263,40 @@ float SdfBox(float3 currentRayPosition, float3 pos, float3 size)
 	float dist = min(maxDistance, 0.0); //箱の中にカメラがある場合？たぶん
 	float distanceToBoxSurface = dist + length(max(distanceVec, 0.0));
 	return distanceToBoxSurface;
+}
+
+float SdfTorus(float3 pos, float2 radius)
+{
+	float2 r = float2(length(pos.xy) - radius.x, pos.z);
+	return length(r) - radius.y;
+}
+
+float SdfTorusKnot(float3 p)
+{
+	float ITR = 40.0, pitch = 1.0, t = 0.5, de = 1e10;
+	for (int j = 0; j<2; j++)
+	{
+		float t0 = t - pitch * 0.5;
+		pitch /= ITR;
+		for (float i = 0.0; i <= ITR; i++)
+		{
+			t0 += pitch;
+			float de0 = distance(p, torusKnot(t0));
+			if (de0<de)
+			{
+				de = de0;
+				t = t0;
+			}
+		}
+	}
+
+	float3 u = normalize(torusKnot(t));
+	float3 v = normalize(torusKnot(t + 0.01) - torusKnot(t - 0.01));
+	float3 w = normalize(cross(u, v));
+	u = cross(v, w);
+	p -= torusKnot(t);
+	p = float3(dot(p, w), dot(p, u), dot(p, v));
+	return lengthN(float2(length(p.yz), p.x), 3.0) - 0.18;
 }
 
 //-------------------------------------------------------------------------------------
@@ -305,6 +357,14 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 	//float sdfBox = SdfRoundBox(Rotate3D(YAxis, radians(45.0)) * currentRayPosition, boxPosition, boxSize, 0.01);
 	float2 box = float2(sdfBox, MATERIAL_OPACITY);
 
+	//TorusKnot
+	float3 torusPos = float3(0.0, 0.0, 0.0);
+	float2 torusRadius = float2(1.5, 0.12);
+	float sdfTorus = SdfTorus(mul(Rotate3D(XAxis, radians(90.0)), currentRayPosition), torusRadius);
+	float sdfTorusNot = SdfTorusKnot(currentRayPosition);
+	float2 torusKnot = float2(min(sdfTorusNot, sdfTorus), MATERIAL_OPACITY);
+	
+
 	////Height Map Test
 	//float2 uv = mod(abs(currentRayPosition.xz) * 0.25, 1.0);
 	//float4 hightMap = texture(iChannel0, uv);
@@ -341,7 +401,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 
 
 
-	float2 result = WhichThingAmICloserTo(box, sphere);
+	float2 result = WhichThingAmICloserTo(torusKnot, box);
 
 
 
@@ -1006,12 +1066,12 @@ float4 PSMain(PSInput input) : SV_TARGET
 	float2 inScreenPos = NormalizingCoordinated(input.uv, float2(1, 1));
 
 	//move camera
-	float angle = 0.2 * g_time; float3 camPos = float3(10.0 * sin(angle), 2.5 * cos(0.4 * angle), 10.0 * cos(angle));
+	//float angle = 0.2 * g_time; float3 camPos = float3(10.0 * sin(angle), 2.5 * cos(0.4 * angle), 10.0 * cos(angle));
 
 	//rotate camera
 	//float3 camPos = float3(1.5 * sin(1.5 * g_time), 1.0, 6.0);
 
-	//float3 camPos = float3( 0., 1, 6.);
+	float3 camPos = float3( 0., 1, 6.);
 	float3 camLookAt = float3(0., 1.5, 0.);
 	float3x3 eyeTransformationMtx = CalculateEyeRayTransformationMatrix(camPos, camLookAt, 0.);
 
