@@ -320,7 +320,7 @@ BOOL Init(HWND hWnd)
 
 		//ルートシグネチャーを作成
 		D3D12_ROOT_SIGNATURE_DESC	rootSignatureDesc;
-		rootSignatureDesc.NumParameters = std::size(rootParameters);
+		rootSignatureDesc.NumParameters = (UINT)std::size(rootParameters);
 		rootSignatureDesc.pParameters = rootParameters;
 		rootSignatureDesc.NumStaticSamplers = 1;
 		rootSignatureDesc.pStaticSamplers = &staticSamplerDesc;
@@ -363,7 +363,7 @@ BOOL Init(HWND hWnd)
 
 		// グラフィックスパイプラインの状態オブジェクトを作成
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC	psoDesc = {};
-		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
+		psoDesc.InputLayout = { inputElementDescs, static_cast<UINT>(std::size(inputElementDescs)) };
 		psoDesc.pRootSignature = g_rootSignature.Get();
 		{
 			D3D12_SHADER_BYTECODE	shaderBytecode;
@@ -711,7 +711,7 @@ BOOL InitTexture(HWND hWnd)
 		D3D12_RESOURCE_DESC		resourceDesc = {};
 		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 		resourceDesc.Width = mdata.width;
-		resourceDesc.Height = mdata.height;
+		resourceDesc.Height = (UINT)mdata.height;
 		resourceDesc.DepthOrArraySize = 6;
 		resourceDesc.MipLevels = 1;
 		resourceDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -744,7 +744,7 @@ BOOL InitTexture(HWND hWnd)
 		for (int i = 0; i < 6; i++) {
 			const Image* pImage = image.GetImage(0, i, 0);
 			D3D12_BOX	box = { 0, 0, 0, (UINT)pImage->width, (UINT)pImage->height, 1 };
-			if (FAILED(g_rTestTexture->WriteToSubresource(i, &box, pImage->pixels, pImage->rowPitch, pImage->slicePitch))) {
+			if (FAILED(g_rTestTexture->WriteToSubresource(i, &box, pImage->pixels, (UINT)pImage->rowPitch, (UINT)pImage->slicePitch))) {
 				return FALSE;
 			}
 		}
@@ -815,7 +815,7 @@ BOOL Draw()
 	// テクスチャをシェーダーのレジスタへ設定
 	{
 		ID3D12DescriptorHeap* descriptorHeap[] = { g_dhTexture.Get() };
-		g_commandList->SetDescriptorHeaps(_countof(descriptorHeap), descriptorHeap);
+		g_commandList->SetDescriptorHeaps((UINT)std::size(descriptorHeap), descriptorHeap);
 		g_commandList->SetGraphicsRootDescriptorTable(1, g_dhTexture->GetGPUDescriptorHandleForHeapStart());
 	}
 
@@ -860,7 +860,7 @@ BOOL Draw()
 
 	// コマンドリストを実行
 	ID3D12CommandList	*ppCommandLists[] = { g_commandList.Get() };
-	g_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	g_commandQueue->ExecuteCommandLists((UINT)std::size(ppCommandLists), ppCommandLists);
 
 	// フレームを最終出力
 	if (FAILED(g_swapChain->Present(1, 0))) return FALSE;
