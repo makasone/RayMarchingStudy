@@ -299,37 +299,6 @@ float SdfTorusKnot(float3 p)
 	return lengthN(float2(length(p.yz), p.x), 3.0) - 0.18;
 }
 
-float SdfMandelbulb(in float3 p, in bool conservative)
-{
-    float3 w = p;
-    float m = dot(w, w);
-
-    float dz = 1.0;
-    float3 J = float3(.2, 0.2, 0.2);
-    
-    float DERIVATIVE_BIAS = 1.0;
-
-    for (int i = 0; i < 5; i++)
-    {
-        if (conservative)
-            dz = max(dz * DERIVATIVE_BIAS, 8.0 * pow(m, 3.5) * dz + 1.0);
-        else
-            dz = 8.0 * pow(m, 3.5) * dz + 1.0;
-		
-        float r = length(w);
-        float b = 8.0 * acos(clamp(w.y / r, -1.0, 1.0));
-        float a = 8.0 * atan2(w.x, w.z);
-        w = p + J + pow(r, 8.0) * float3(sin(b) * sin(a), cos(b), sin(b) * cos(a));
-        
-        m = dot(w, w);
-		
-        if (m > 4.0)
-            break;
-    }
-       
-    return 0.25 * log(m) * sqrt(m) / dz;
-}
-
 //-------------------------------------------------------------------------------------
 // 'TAG : WHICH AM I CLOSER TO?'
 // This function takes in two things
@@ -395,9 +364,6 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 	float sdfTorusNot = SdfTorusKnot(currentRayPosition);
 	float2 torusKnot = float2(min(sdfTorusNot, sdfTorus), MATERIAL_OPACITY);
 	
-	//MandelBulb
-    float sdfMandelbulb = SdfMandelbulb(currentRayPosition, false);
-    float2 mandelbulb = float2(sdfMandelbulb, MATERIAL_OPACITY);
 
 	////Height Map Test
 	//float2 uv = mod(abs(currentRayPosition.xz) * 0.25, 1.0);
@@ -435,7 +401,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 
 
 
-    float2 result = WhichThingAmICloserTo(mandelbulb, mandelbulb);
+	float2 result = WhichThingAmICloserTo(torusKnot, box);
 
 
 
@@ -1105,8 +1071,8 @@ float4 PSMain(PSInput input) : SV_TARGET
 	//rotate camera
 	//float3 camPos = float3(1.5 * sin(1.5 * g_time), 1.0, 6.0);
 
-	float3 camPos = float3(0., 1.0, 2.);
-	float3 camLookAt = float3(0., 0, 0.);
+	float3 camPos = float3( 0., 1, 6.);
+	float3 camLookAt = float3(0., 1.5, 0.);
 	float3x3 eyeTransformationMtx = CalculateEyeRayTransformationMatrix(camPos, camLookAt, 0.);
 
 	//scene
