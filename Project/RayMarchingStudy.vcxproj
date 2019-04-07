@@ -28,9 +28,49 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">PSMain</EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="..\Source\Shader\CommonDistanceField.hlsli">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Source\Shader\CommonFunction.hlsli">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </EntryPointName>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Source\imgui\imgui.cpp" />
+    <ClCompile Include="..\Source\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\Source\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\Source\imgui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="..\Source\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\Source\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\Source\main.cpp" />
     <ClCompile Include="..\Source\TexReader\BC.cpp" />
     <ClCompile Include="..\Source\TexReader\BC4BC5.cpp" />
@@ -59,6 +99,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Source\d3dx12.h" />
+    <ClInclude Include="..\Source\imgui\imconfig.h" />
+    <ClInclude Include="..\Source\imgui\imgui.h" />
+    <ClInclude Include="..\Source\imgui\imgui_impl_dx12.h" />
+    <ClInclude Include="..\Source\imgui\imgui_impl_win32.h" />
+    <ClInclude Include="..\Source\imgui\imgui_internal.h" />
+    <ClInclude Include="..\Source\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\Source\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\Source\imgui\imstb_truetype.h" />
     <ClInclude Include="..\Source\TexReader\BC.h" />
     <ClInclude Include="..\Source\TexReader\BCDirectCompute.h" />
     <ClInclude Include="..\Source\TexReader\d3dx12.h" />
@@ -131,12 +179,12 @@
     <LibraryPath>C:\Program Files (x86)\Windows Kits\10\Lib\10.0.17134.0\um\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Program Files\Windows Kits\10\Include\10.0.17134.0\um;C:\Program Files\Windows Kits\10\Include\10.0.17134.0\shared;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files\Windows Kits\10\Lib\10.0.17134.0\um\x86;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Program Files (x86)\Windows Kits\10\Include\10.0.17134.0\um;C:\Program Files (x86)\Windows Kits\10\Include\10.0.17134.0\shared;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files (x86)\Windows Kits\10\Lib\10.0.17134.0\ucrt\x64;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.17134.0\um\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Program Files\Windows Kits\10\Include\10.0.17134.0\um;C:\Program Files\Windows Kits\10\Include\10.0.17134.0\shared;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files\Windows Kits\10\Lib\10.0.17134.0\um\x86;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Program Files (x86)\Windows Kits\10\Include\10.0.17134.0\um;C:\Program Files (x86)\Windows Kits\10\Include\10.0.17134.0\shared;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files (x86)\Windows Kits\10\Lib\10.0.17134.0\ucrt\x64;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.17134.0\um\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -144,6 +192,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
     </ClCompile>
     <PostBuildEvent>
       <Command>xcopy $(OutDir)$(TargetFileName) ..\Dist  /Y</Command>
@@ -158,7 +207,11 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>xcopy $(OutDir)$(TargetFileName) ..\Dist  /Y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -168,6 +221,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -185,11 +239,15 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy $(OutDir)$(TargetFileName) ..\Dist  /Y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

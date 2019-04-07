@@ -13,6 +13,10 @@
 
 #include "TexReader/DirectXTex.h"
 
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
+
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
@@ -80,10 +84,10 @@ ComPtr<ID3D12Resource>		g_indexBuffer;
 D3D12_INDEX_BUFFER_VIEW		g_indexBufferView;
 
 //テクスチャー
-ComPtr<ID3D12Resource>			g_rTexture;
-ComPtr<ID3D12Resource>			g_rTestTexture;
-ComPtr<ID3D12Resource>			g_rCubeMapTexture;
-ComPtr<ID3D12DescriptorHeap>	g_dhTexture;
+ComPtr<ID3D12Resource>				g_rTexture;
+ComPtr<ID3D12Resource>				g_rTestTexture;
+ComPtr<ID3D12Resource>				g_rCubeMapTexture;
+ComPtr<ID3D12DescriptorHeap>		g_dhTexture;
 ComPtr<ID3D12GraphicsCommandList>	g_texCommandList;
 
 //定数バッファ
@@ -105,10 +109,17 @@ float g_time = 0.0f;
 bool	g_useWarpDevice = false;
 //bool	g_useWarpDevice = true;
 
-
-int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, TCHAR *lpszCmdLine, int nCmdShow)
+struct FrameContext
 {
-	// ウィンドウを作成
+	ID3D12CommandAllocator* CommandAllocator;
+	UINT64                  FenceValue;
+};
+
+static int const                    NUM_FRAMES_IN_FLIGHT = 3;
+static FrameContext                 g_frameContext[NUM_FRAMES_IN_FLIGHT] = {};
+
+HWND CreateAppWindow(HINSTANCE hInstance)
+{
 	WNDCLASSEX	wndclass = {};
 
 	// ウィンドウクラスを登録
@@ -125,7 +136,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, TCHAR *lpszCm
 	AdjustWindowRect(&windowRect, WINDOW_STYLE, FALSE);
 
 	// ウィンドウを作成
-	HWND	hWnd = CreateWindow(
+	return CreateWindow(
 		WINDOW_CLASS,
 		WINDOW_TITLE,
 		WINDOW_STYLE,
@@ -137,6 +148,13 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, TCHAR *lpszCm
 		NULL,
 		hInstance,
 		NULL);
+}
+
+
+int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, TCHAR *lpszCmdLine, int nCmdShow)
+{
+	// ウィンドウを作成
+	HWND hWnd = CreateAppWindow(hInstance);
 
 	// DirectXを初期化
 	if (!Init(hWnd)) {
@@ -144,20 +162,66 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, TCHAR *lpszCm
 		return 0;
 	}
 
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsClassic();
+
+	D3D12_CPU_DESCRIPTOR_HANDLE		cpuDescriptorHandle = {};
+	cpuDescriptorHandle = g_dhTexture->GetCPUDescriptorHandleForHeapStart();
+	cpuDescriptorHandle.ptr += g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV) * 2;
+
+	// Setup Platform/Renderer bindings
+	ImGui_ImplWin32_Init(hWnd);
+	ImGui_ImplDX12_Init(g_device.Get(), NUM_FRAMES_IN_FLIGHT,
+		DXGI_FORMAT_R8G8B8A8_UNORM,
+		cpuDescriptorHandle,
+		g_dhTexture->GetGPUDescriptorHandleForHeapStart());
+
+	// Load Fonts
+	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+	// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+	// - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+	// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+	// - Read 'misc/fonts/README.txt' for more instructions and details.
+	// - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+	//io.Fonts->AddFontDefault();
+	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
+	//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+	//IM_ASSERT(font != NULL);
+
 	ShowWindow(hWnd, SW_SHOW);
 	UpdateWindow(hWnd);
 
+
 	// メッセージループ
 	MSG	msg;
+	ZeroMemory(&msg, sizeof(msg));
 
-	while (1) {
+	while (msg.message != WM_QUIT) {
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-			if (msg.message == WM_QUIT) break;
-
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 	}
+
+	//WaitForLastSubmittedFrame();
+	//ImGui_ImplDX12_Shutdown();
+	//ImGui_ImplWin32_Shutdown();
+	//ImGui::DestroyContext();
+
+	//CleanupDeviceD3D();
+	//::DestroyWindow(hwnd);
+	//::UnregisterClass(wc.lpszClassName, wc.hInstance);
 
 	// 終了時の後処理
 	WaitForPreviousFrame();
@@ -320,7 +384,7 @@ BOOL Init(HWND hWnd)
 
 		//ルートシグネチャーを作成
 		D3D12_ROOT_SIGNATURE_DESC	rootSignatureDesc;
-		rootSignatureDesc.NumParameters = std::size(rootParameters);
+		rootSignatureDesc.NumParameters = (UINT)std::size(rootParameters);
 		rootSignatureDesc.pParameters = rootParameters;
 		rootSignatureDesc.NumStaticSamplers = 1;
 		rootSignatureDesc.pStaticSamplers = &staticSamplerDesc;
@@ -363,7 +427,7 @@ BOOL Init(HWND hWnd)
 
 		// グラフィックスパイプラインの状態オブジェクトを作成
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC	psoDesc = {};
-		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
+		psoDesc.InputLayout = { inputElementDescs, static_cast<UINT>(std::size(inputElementDescs)) };
 		psoDesc.pRootSignature = g_rootSignature.Get();
 		{
 			D3D12_SHADER_BYTECODE	shaderBytecode;
@@ -603,7 +667,7 @@ BOOL InitTexture(HWND hWnd)
 
 		// テクスチャー用の記述子ヒープを作成
 		D3D12_DESCRIPTOR_HEAP_DESC	descriptorHeapDesc = {};
-		descriptorHeapDesc.NumDescriptors = 1 + 1;	//t0,t1ということ　わかりづらいのでいい感じにしたい
+		descriptorHeapDesc.NumDescriptors = 1 + 1 + 1;	//t0 + t1 + imgui用　わかりづらいのでいい感じにしたい
 		descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 		descriptorHeapDesc.NodeMask = 0;
@@ -711,7 +775,7 @@ BOOL InitTexture(HWND hWnd)
 		D3D12_RESOURCE_DESC		resourceDesc = {};
 		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 		resourceDesc.Width = mdata.width;
-		resourceDesc.Height = mdata.height;
+		resourceDesc.Height = (UINT)mdata.height;
 		resourceDesc.DepthOrArraySize = 6;
 		resourceDesc.MipLevels = 1;
 		resourceDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -744,7 +808,7 @@ BOOL InitTexture(HWND hWnd)
 		for (int i = 0; i < 6; i++) {
 			const Image* pImage = image.GetImage(0, i, 0);
 			D3D12_BOX	box = { 0, 0, 0, (UINT)pImage->width, (UINT)pImage->height, 1 };
-			if (FAILED(g_rTestTexture->WriteToSubresource(i, &box, pImage->pixels, pImage->rowPitch, pImage->slicePitch))) {
+			if (FAILED(g_rTestTexture->WriteToSubresource(i, &box, pImage->pixels, (UINT)pImage->rowPitch, (UINT)pImage->slicePitch))) {
 				return FALSE;
 			}
 		}
@@ -767,19 +831,6 @@ BOOL InitTexture(HWND hWnd)
 
 		if (!WaitForPreviousFrame()) return FALSE;
 	}
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 	return TRUE;
 }
@@ -815,9 +866,78 @@ BOOL Draw()
 	// テクスチャをシェーダーのレジスタへ設定
 	{
 		ID3D12DescriptorHeap* descriptorHeap[] = { g_dhTexture.Get() };
-		g_commandList->SetDescriptorHeaps(_countof(descriptorHeap), descriptorHeap);
+		g_commandList->SetDescriptorHeaps((UINT)std::size(descriptorHeap), descriptorHeap);
 		g_commandList->SetGraphicsRootDescriptorTable(1, g_dhTexture->GetGPUDescriptorHandleForHeapStart());
 	}
+
+	// igui　全然うまくいかない…
+	//{
+	//	// Our state
+	//	bool show_demo_window = true;
+	//	bool show_another_window = false;
+	//	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+	//	// Start the Dear ImGui frame
+	//	ImGui_ImplDX12_NewFrame();
+	//	ImGui_ImplWin32_NewFrame();
+	//	ImGui::NewFrame();
+
+	//	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+	//	if (show_demo_window)
+	//		ImGui::ShowDemoWindow(&show_demo_window);
+
+	//	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+	//	{
+	//		static float f = 0.0f;
+	//		static int counter = 0;
+
+	//		ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+	//		ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+	//		ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+	//		ImGui::Checkbox("Another Window", &show_another_window);
+
+	//		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+	//		ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+	//		if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+	//			counter++;
+	//		ImGui::SameLine();
+	//		ImGui::Text("counter = %d", counter);
+
+	//		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	//		ImGui::End();
+	//	}
+
+
+	//	// 3. Show another simple window.
+	//	if (show_another_window)
+	//	{
+	//		ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+	//		ImGui::Text("Hello from another window!");
+	//		if (ImGui::Button("Close Me"))
+	//			show_another_window = false;
+	//		ImGui::End();
+	//	}
+
+	//	//// Rendering
+	//	//D3D12_RESOURCE_BARRIER barrier = {};
+	//	//barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	//	//barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	//	//barrier.Transition.pResource = g_renderTargets[g_frameIndex].Get();
+	//	//barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	//	//barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	//	//barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+	//	//g_commandList->Reset(frameCtxt->CommandAllocator, NULL);
+	//	//g_commandList->ResourceBarrier(1, &barrier);
+	//	//g_commandList->ClearRenderTargetView(g_mainRenderTargetDescriptor[backBufferIdx], (float*)&clear_color, 0, NULL);
+	//	//g_commandList->OMSetRenderTargets(1, &g_mainRenderTargetDescriptor[backBufferIdx], FALSE, NULL);
+	//	//g_commandList->SetDescriptorHeaps(1, &g_dhTexture);
+
+	//	ImGui::Render();
+	//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_commandList.Get());
+	//}
 
 	// バックバッファをレンダリングターゲットとして使用
 	{
@@ -860,7 +980,7 @@ BOOL Draw()
 
 	// コマンドリストを実行
 	ID3D12CommandList	*ppCommandLists[] = { g_commandList.Get() };
-	g_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	g_commandQueue->ExecuteCommandLists((UINT)std::size(ppCommandLists), ppCommandLists);
 
 	// フレームを最終出力
 	if (FAILED(g_swapChain->Present(1, 0))) return FALSE;
