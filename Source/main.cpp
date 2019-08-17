@@ -4,6 +4,8 @@
 #include <vector>
 #include <iostream>
 #include <assert.h>
+#include <time.h>
+#include <sstream>
 
 #include <d3d12.h>
 #pragma comment(lib, "d3d12.lib")
@@ -41,6 +43,9 @@ BOOL Draw();
 // 
 BOOL WaitForPreviousFrame();
 
+//デバッグ・便利機能
+bool ReLoadShader();
+void OutputTimeInfoToDebug();
 
 const UINT	FrameCount = 2;
 
@@ -186,20 +191,10 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam)
 		switch (wParam) {
 			case VK_F5:
 			{
-				OutputDebugString("F5 Shader ReLoad\n");
-				ComPtr<ID3DBlob>	vertexShader;
-				ComPtr<ID3DBlob>	pixelShader;
-				
-				if (!LoadShader(vertexShader, pixelShader)) {
-					assert(false, "Miss LoadShader");
+				if (!ReLoadShader()) {
+					assert(false, "Miss ReLoadShader");
 					return FALSE;
 				}
-				
-				if (!CreatePipelineStateObject(vertexShader, pixelShader)) {
-					assert(false, "Miss CreatePipelineStateObject");
-					return FALSE;
-				}
-
 				break;
 			}
 		}
@@ -936,3 +931,38 @@ BOOL WaitForPreviousFrame()
 	return TRUE;
 }
 
+bool ReLoadShader()
+{
+	OutputDebugString("[F5] Start Shader ReLoad\n");
+	ComPtr<ID3DBlob>	vertexShader;
+	ComPtr<ID3DBlob>	pixelShader;
+
+	if (!LoadShader(vertexShader, pixelShader)) {
+		assert(false, "Miss LoadShader");
+		return false;
+	}
+
+	if (!CreatePipelineStateObject(vertexShader, pixelShader)) {
+		assert(false, "Miss CreatePipelineStateObject");
+		return false;
+	}
+
+	OutputTimeInfoToDebug();
+	OutputDebugString("End Shader ReLoad\n");
+
+	return true;
+}
+
+//てきとー
+void OutputTimeInfoToDebug()
+{
+	time_t ltime = time(NULL);
+	struct tm today = { 0, 0, 12, 25, 11, 93 };
+	errno_t err = _localtime64_s(&today, &ltime);
+	const vector<string> week = { "Sun", "Mon", "Tue", "Wen", "Thr", "Fry", "Sat" };
+	std::ostringstream str;
+	str << today.tm_year + 1900 << "/" << today.tm_mon + 1 << "/" << today.tm_mday << " " << week[today.tm_wday] << " "
+		<< today.tm_hour << ":" << today.tm_min << ":" << today.tm_sec << endl;
+
+	OutputDebugString(str.str().c_str());
+}
