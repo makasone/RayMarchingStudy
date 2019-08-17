@@ -2,6 +2,8 @@
 #include <tchar.h>
 #include <wrl.h>		// Microsoft::WRL::ComPtr
 #include <vector>
+#include <iostream>
+#include <assert.h>
 
 #include <d3d12.h>
 #pragma comment(lib, "d3d12.lib")
@@ -13,26 +15,32 @@
 
 #include "TexReader/DirectXTex.h"
 
+using namespace std;
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
 #define WINDOW_CLASS	_T("DirectX12Test")
 #define WINDOW_TITLE	WINDOW_CLASS
 #define	WINDOW_STYLE	WS_OVERLAPPEDWINDOW
-//#define WINDOW_WIDTH	1280
-//#define WINDOW_HEIGHT	720
-#define WINDOW_WIDTH	512
-#define WINDOW_HEIGHT	512
+#define WINDOW_WIDTH	1280
+#define WINDOW_HEIGHT	720
+//#define WINDOW_WIDTH	512
+//#define WINDOW_HEIGHT	512
 
 // ウィンドウプロシージャ
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam);
 // 初期化
 BOOL Init(HWND hWnd);
 BOOL InitTexture(HWND hWnd);
+
+bool LoadShader(ComPtr<ID3DBlob>& vertexShader, ComPtr<ID3DBlob>& pixelShader);
+bool CreatePipelineStateObject(ComPtr<ID3DBlob>& vertexShader, ComPtr<ID3DBlob>& pixelShader);
+
 // 描画
 BOOL Draw();
 // 
 BOOL WaitForPreviousFrame();
+
 
 const UINT	FrameCount = 2;
 
@@ -173,6 +181,28 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam)
 	case WM_PAINT:
 		// 描画
 		Draw();
+		break;
+	case WM_KEYDOWN:
+		switch (wParam) {
+			case VK_F5:
+			{
+				OutputDebugString("F5 Shader ReLoad\n");
+				ComPtr<ID3DBlob>	vertexShader;
+				ComPtr<ID3DBlob>	pixelShader;
+				
+				if (!LoadShader(vertexShader, pixelShader)) {
+					assert(false, "Miss LoadShader");
+					return FALSE;
+				}
+				
+				if (!CreatePipelineStateObject(vertexShader, pixelShader)) {
+					assert(false, "Miss CreatePipelineStateObject");
+					return FALSE;
+				}
+
+				break;
+			}
+		}
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -336,89 +366,18 @@ BOOL Init(HWND hWnd)
 		}
 	}
 
-	// シェーダーをコンパイル
+	// パイプラインステートを作成
 	{
 		ComPtr<ID3DBlob>	vertexShader;
 		ComPtr<ID3DBlob>	pixelShader;
 
-#if defined(_DEBUG)
-		// グラフィックデバッグツールによるシェーダーのデバッグを有効にする
-		UINT	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-		UINT	compileFlags = 0;
-#endif
-
-		if (FAILED(D3DCompileFromFile(L"../Source/shaders.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr))) {
-			return FALSE;
-		}
-		if (FAILED(D3DCompileFromFile(L"../Source/shaders.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr))) {
+		if (!LoadShader(vertexShader, pixelShader)) {
+			assert(false, "Miss LoadShader");
 			return FALSE;
 		}
 
-		// 頂点入力レイアウトを定義
-		D3D12_INPUT_ELEMENT_DESC	inputElementDescs[] = {
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,		0,  0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,			0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-		};
-
-		// グラフィックスパイプラインの状態オブジェクトを作成
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC	psoDesc = {};
-		psoDesc.InputLayout = { inputElementDescs, static_cast<UINT>(std::size(inputElementDescs)) };
-		psoDesc.pRootSignature = g_rootSignature.Get();
-		{
-			D3D12_SHADER_BYTECODE	shaderBytecode;
-			shaderBytecode.pShaderBytecode = vertexShader->GetBufferPointer();
-			shaderBytecode.BytecodeLength = vertexShader->GetBufferSize();
-			psoDesc.VS = shaderBytecode;
-		}
-		{
-			D3D12_SHADER_BYTECODE	shaderBytecode;
-			shaderBytecode.pShaderBytecode = pixelShader->GetBufferPointer();
-			shaderBytecode.BytecodeLength = pixelShader->GetBufferSize();
-			psoDesc.PS = shaderBytecode;
-		}
-		{
-			D3D12_RASTERIZER_DESC	rasterizerDesc = {};
-			rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
-			rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
-			rasterizerDesc.FrontCounterClockwise = FALSE;
-			rasterizerDesc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
-			rasterizerDesc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
-			rasterizerDesc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
-			rasterizerDesc.DepthClipEnable = TRUE;
-			rasterizerDesc.MultisampleEnable = FALSE;
-			rasterizerDesc.AntialiasedLineEnable = FALSE;
-			rasterizerDesc.ForcedSampleCount = 0;
-			rasterizerDesc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-			psoDesc.RasterizerState = rasterizerDesc;
-		}
-		{
-			D3D12_BLEND_DESC	blendDesc = {};
-			blendDesc.AlphaToCoverageEnable = FALSE;
-			blendDesc.IndependentBlendEnable = FALSE;
-			for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i) {
-				blendDesc.RenderTarget[i].BlendEnable = FALSE;
-				blendDesc.RenderTarget[i].LogicOpEnable = FALSE;
-				blendDesc.RenderTarget[i].SrcBlend = D3D12_BLEND_ONE;
-				blendDesc.RenderTarget[i].DestBlend = D3D12_BLEND_ZERO;
-				blendDesc.RenderTarget[i].BlendOp = D3D12_BLEND_OP_ADD;
-				blendDesc.RenderTarget[i].SrcBlendAlpha = D3D12_BLEND_ONE;
-				blendDesc.RenderTarget[i].DestBlendAlpha = D3D12_BLEND_ZERO;
-				blendDesc.RenderTarget[i].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-				blendDesc.RenderTarget[i].LogicOp = D3D12_LOGIC_OP_NOOP;
-				blendDesc.RenderTarget[i].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-			}
-			psoDesc.BlendState = blendDesc;
-		}
-		psoDesc.DepthStencilState.DepthEnable = FALSE;
-		psoDesc.DepthStencilState.StencilEnable = FALSE;
-		psoDesc.SampleMask = UINT_MAX;
-		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		psoDesc.NumRenderTargets = 1;
-		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		psoDesc.SampleDesc.Count = 1;
-
-		if (FAILED(g_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&g_pipelineState)))) {
+		if (!CreatePipelineStateObject(vertexShader, pixelShader)) {
+			assert(false, "Miss CreatePipelineStateObject");
 			return FALSE;
 		}
 	}
@@ -784,6 +743,98 @@ BOOL InitTexture(HWND hWnd)
 	return TRUE;
 }
 
+//シェーダーをロード
+bool LoadShader(ComPtr<ID3DBlob>& vertexShader, ComPtr<ID3DBlob>& pixelShader)
+{
+#if defined(_DEBUG)
+	// グラフィックデバッグツールによるシェーダーのデバッグを有効にする
+	UINT	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+	UINT	compileFlags = 0;
+#endif
+
+	if (FAILED(D3DCompileFromFile(L"../Source/shaders.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr))) {
+		return FALSE;
+	}
+	if (FAILED(D3DCompileFromFile(L"../Source/shaders.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr))) {
+		return FALSE;
+	}
+
+	return true;
+}
+
+bool CreatePipelineStateObject(ComPtr<ID3DBlob>& vertexShader, ComPtr<ID3DBlob>& pixelShader)
+{
+	// 頂点入力レイアウトを定義
+	D3D12_INPUT_ELEMENT_DESC	inputElementDescs[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,		0,  0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,			0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	// グラフィックスパイプラインの状態オブジェクトを作成
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC	psoDesc = {};
+	psoDesc.InputLayout = { inputElementDescs, static_cast<UINT>(std::size(inputElementDescs)) };
+	psoDesc.pRootSignature = g_rootSignature.Get();
+	{
+		D3D12_SHADER_BYTECODE	shaderBytecode;
+		shaderBytecode.pShaderBytecode = vertexShader->GetBufferPointer();
+		shaderBytecode.BytecodeLength = vertexShader->GetBufferSize();
+		psoDesc.VS = shaderBytecode;
+	}
+	{
+		D3D12_SHADER_BYTECODE	shaderBytecode;
+		shaderBytecode.pShaderBytecode = pixelShader->GetBufferPointer();
+		shaderBytecode.BytecodeLength = pixelShader->GetBufferSize();
+		psoDesc.PS = shaderBytecode;
+	}
+	{
+		D3D12_RASTERIZER_DESC	rasterizerDesc = {};
+		rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
+		rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
+		rasterizerDesc.FrontCounterClockwise = FALSE;
+		rasterizerDesc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+		rasterizerDesc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+		rasterizerDesc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+		rasterizerDesc.DepthClipEnable = TRUE;
+		rasterizerDesc.MultisampleEnable = FALSE;
+		rasterizerDesc.AntialiasedLineEnable = FALSE;
+		rasterizerDesc.ForcedSampleCount = 0;
+		rasterizerDesc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+		psoDesc.RasterizerState = rasterizerDesc;
+	}
+	{
+		D3D12_BLEND_DESC	blendDesc = {};
+		blendDesc.AlphaToCoverageEnable = FALSE;
+		blendDesc.IndependentBlendEnable = FALSE;
+		for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i) {
+			blendDesc.RenderTarget[i].BlendEnable = FALSE;
+			blendDesc.RenderTarget[i].LogicOpEnable = FALSE;
+			blendDesc.RenderTarget[i].SrcBlend = D3D12_BLEND_ONE;
+			blendDesc.RenderTarget[i].DestBlend = D3D12_BLEND_ZERO;
+			blendDesc.RenderTarget[i].BlendOp = D3D12_BLEND_OP_ADD;
+			blendDesc.RenderTarget[i].SrcBlendAlpha = D3D12_BLEND_ONE;
+			blendDesc.RenderTarget[i].DestBlendAlpha = D3D12_BLEND_ZERO;
+			blendDesc.RenderTarget[i].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+			blendDesc.RenderTarget[i].LogicOp = D3D12_LOGIC_OP_NOOP;
+			blendDesc.RenderTarget[i].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+		}
+		psoDesc.BlendState = blendDesc;
+	}
+	psoDesc.DepthStencilState.DepthEnable = FALSE;
+	psoDesc.DepthStencilState.StencilEnable = FALSE;
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	psoDesc.SampleDesc.Count = 1;
+
+	if (FAILED(g_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&g_pipelineState)))) {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 // 描画
 BOOL Draw()
 {
@@ -884,3 +935,4 @@ BOOL WaitForPreviousFrame()
 
 	return TRUE;
 }
+

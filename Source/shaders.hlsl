@@ -30,6 +30,8 @@ struct PSInput {
 #define YAxis float3(0.0, 1.0, 0.0)
 #define ZAxis float3(0.0, 0.0, 1.0)
 
+#define COLOR_BLACK float3(0.0, 0.0, 0.0)
+
 //----------------------------------------------------------------------------------------------
 struct Ray
 {
@@ -232,6 +234,32 @@ float3 torusKnot(float t)
 	return p;
 }
 
+//2DGrid
+float IsGridLine(float2 fragCoord, float2 vPixelsPerGridSquare)
+{
+	// Define the size we want each grid square in pixels
+    //float2 vPixelsPerGridSquare = float2(16.0, 16.0);
+	
+	// Get a value in the range 0->1 based on where we are in each grid square
+	// fract() returns the fractional part of the value and throws away the whole number part
+	// This helpfully wraps numbers around in the 0->1 range
+    float2 vGridSquareCoords = frac(fragCoord / vPixelsPerGridSquare);
+	
+	// Convert the 0->1 co-ordinates of where we are within the grid square
+	// back into pixel co-ordinates within the grid square 
+    float2 vGridSquarePixelCoords = vGridSquareCoords * vPixelsPerGridSquare;
+
+	// step() returns 0.0 if the second parmeter is less than the first, 1.0 otherwise
+	// so we get 1.0 if we are on a grid line, 0.0 otherwise
+    float2 vIsGridLine = step(vGridSquarePixelCoords, float2(1.0, 1.0));
+	
+	// Combine the x and y gridlines by taking the maximum of the two values
+    float fIsGridLine = max(vIsGridLine.x, vIsGridLine.y);
+
+	// return the result
+    return fIsGridLine;
+}
+
 //----------------------------------------------------------------------------------------------
 //Signed Distance Field
 //----------------------------------------------------------------------------------------------
@@ -330,6 +358,112 @@ float SdfMandelbulb(in float3 p, in bool conservative)
     return 0.25 * log(m) * sqrt(m) / dz;
 }
 
+// Constants, see here: http://en.wikipedia.org/wiki/Table_of_spherical_harmonics
+#define k01 0.2820947918 // sqrt(  1/PI)/2
+#define k02 0.4886025119 // sqrt(  3/PI)/2
+#define k03 1.0925484306 // sqrt( 15/PI)/2
+#define k04 0.3153915652 // sqrt(  5/PI)/4
+#define k05 0.5462742153 // sqrt( 15/PI)/4
+#define k06 0.5900435860 // sqrt( 70/PI)/8
+#define k07 2.8906114210 // sqrt(105/PI)/2
+#define k08 0.4570214810 // sqrt( 42/PI)/8
+#define k09 0.3731763300 // sqrt(  7/PI)/4
+#define k10 1.4453057110 // sqrt(105/PI)/4
+
+// Y_l_m(s), where l is the band and m the range in [-l..l] 
+float SH(in int l, in int m, in float3 s)
+{
+	float3 n = s.zxy;
+
+	//----------------------------------------------------------
+	if (l == 0)          return  k01;
+	//----------------------------------------------------------
+	if (l == 1 && m == -1) return -k02 * n.y;
+	if (l == 1 && m == 0) return  k02 * n.z;
+	if (l == 1 && m == 1) return -k02 * n.x;
+	//----------------------------------------------------------
+	if (l == 2 && m == -2) return  k03 * n.x*n.y;
+	if (l == 2 && m == -1) return -k03 * n.y*n.z;
+	if (l == 2 && m == 0) return  k04 * (3.0*n.z*n.z - 1.0);
+	if (l == 2 && m == 1) return -k03 * n.x*n.z;
+	if (l == 2 && m == 2) return  k05 * (n.x*n.x - n.y*n.y);
+	//----------------------------------------------------------
+	if (l == 3 && m == -3) return -k06 * n.y*(3.0*n.x*n.x - n.y*n.y);
+	if (l == 3 && m == -2) return  k07 * n.z*n.y*n.x;
+	if (l == 3 && m == -1) return -k08 * n.y*(5.0*n.z*n.z - 1.0);
+	if (l == 3 && m == 0) return  k09 * n.z*(5.0*n.z*n.z - 3.0);
+	if (l == 3 && m == 1) return -k08 * n.x*(5.0*n.z*n.z - 1.0);
+	if (l == 3 && m == 2) return  k10 * n.z*(n.x*n.x - n.y*n.y);
+	if (l == 3 && m == 3) return -k06 * n.x*(n.x*n.x - 3.0*n.y*n.y);
+	//----------------------------------------------------------
+
+	return 0.0;
+}
+
+// unrolled version of the above
+float SH_0_0(in float3 s) { float3 n = s.zxy; return  k01; }
+float SH_1_0(in float3 s) { float3 n = s.zxy; return -k02 * n.y; }
+float SH_1_1(in float3 s) { float3 n = s.zxy; return  k02 * n.z; }
+float SH_1_2(in float3 s) { float3 n = s.zxy; return -k02 * n.x; }
+float SH_2_0(in float3 s) { float3 n = s.zxy; return  k03 * n.x*n.y; }
+float SH_2_1(in float3 s) { float3 n = s.zxy; return -k03 * n.y*n.z; }
+float SH_2_2(in float3 s) { float3 n = s.zxy; return  k04 * (3.0*n.z*n.z - 1.0); }
+float SH_2_3(in float3 s) { float3 n = s.zxy; return -k03 * n.x*n.z; }
+float SH_2_4(in float3 s) { float3 n = s.zxy; return  k05 * (n.x*n.x - n.y*n.y); }
+float SH_3_0(in float3 s) { float3 n = s.zxy; return -k06 * n.y*(3.0*n.x*n.x - n.y*n.y); }
+float SH_3_1(in float3 s) { float3 n = s.zxy; return  k07 * n.z*n.y*n.x; }
+float SH_3_2(in float3 s) { float3 n = s.zxy; return -k08 * n.y*(5.0*n.z*n.z - 1.0); }
+float SH_3_3(in float3 s) { float3 n = s.zxy; return  k09 * n.z*(5.0*n.z*n.z - 3.0); }
+float SH_3_4(in float3 s) { float3 n = s.zxy; return -k08 * n.x*(5.0*n.z*n.z - 1.0); }
+float SH_3_5(in float3 s) { float3 n = s.zxy; return  k10 * n.z*(n.x*n.x - n.y*n.y); }
+float SH_3_6(in float3 s) { float3 n = s.zxy; return -k06 * n.x*(n.x*n.x - 3.0*n.y*n.y); }
+
+float3 map(in float3 p)
+{
+	float3 p00 = p - float3(0.00, 2.5, 0.0);
+	float3 p01 = p - float3(-1.25, 1.0, 0.0);
+	float3 p02 = p - float3(0.00, 1.0, 0.0);
+	float3 p03 = p - float3(1.25, 1.0, 0.0);
+	float3 p04 = p - float3(-2.50, -0.5, 0.0);
+	float3 p05 = p - float3(-1.25, -0.5, 0.0);
+	float3 p06 = p - float3(0.00, -0.5, 0.0);
+	float3 p07 = p - float3(1.25, -0.5, 0.0);
+	float3 p08 = p - float3(2.50, -0.5, 0.0);
+	float3 p09 = p - float3(-3.75, -2.0, 0.0);
+	float3 p10 = p - float3(-2.50, -2.0, 0.0);
+	float3 p11 = p - float3(-1.25, -2.0, 0.0);
+	float3 p12 = p - float3(0.00, -2.0, 0.0);
+	float3 p13 = p - float3(1.25, -2.0, 0.0);
+	float3 p14 = p - float3(2.50, -2.0, 0.0);
+	float3 p15 = p - float3(3.75, -2.0, 0.0);
+
+	float r, d; float3 n, s, res;
+
+#ifdef SHOW_SPHERES
+#define SHAPE (float3(d-0.35, -1.0+2.0*clamp(0.5 + 16.0*r,0.0,1.0),d))
+#else
+#define SHAPE (float3(d-abs(r), sign(r),d))
+#endif
+	d = length(p00); n = p00 / d; r = SH_0_0(n); s = SHAPE; res = s;
+	d = length(p01); n = p01 / d; r = SH_1_0(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p02); n = p02 / d; r = SH_1_1(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p03); n = p03 / d; r = SH_1_2(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p04); n = p04 / d; r = SH_2_0(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p05); n = p05 / d; r = SH_2_1(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p06); n = p06 / d; r = SH_2_2(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p07); n = p07 / d; r = SH_2_3(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p08); n = p08 / d; r = SH_2_4(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p09); n = p09 / d; r = SH_3_0(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p10); n = p10 / d; r = SH_3_1(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p11); n = p11 / d; r = SH_3_2(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p12); n = p12 / d; r = SH_3_3(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p13); n = p13 / d; r = SH_3_4(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p14); n = p14 / d; r = SH_3_5(n); s = SHAPE; if (s.x<res.x) res = s;
+	d = length(p15); n = p15 / d; r = SH_3_6(n); s = SHAPE; if (s.x<res.x) res = s;
+
+	return float3(res.x, 0.5 + 0.5*res.y, res.z);
+}
+
 //-------------------------------------------------------------------------------------
 // 'TAG : WHICH AM I CLOSER TO?'
 // This function takes in two things
@@ -388,16 +522,21 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 	//float sdfBox = SdfRoundBox(Rotate3D(YAxis, radians(45.0)) * currentRayPosition, boxPosition, boxSize, 0.01);
 	float2 box = float2(sdfBox, MATERIAL_OPACITY);
 
+	//Spherical Harmonics
+	float3 shPos = float3(0.0, 0.0, 0.0);
+	float3 sdfSH = map(currentRayPosition);
+	float2 sh = float2(sdfSH.x, MATERIAL_OPACITY);
+
 	//TorusKnot
-	float3 torusPos = float3(0.0, 0.0, 0.0);
-	float2 torusRadius = float2(1.5, 0.12);
-	float sdfTorus = SdfTorus(mul(Rotate3D(XAxis, radians(90.0)), currentRayPosition), torusRadius);
-	float sdfTorusNot = SdfTorusKnot(currentRayPosition);
-	float2 torusKnot = float2(min(sdfTorusNot, sdfTorus), MATERIAL_OPACITY);
+	//float3 torusPos = float3(0.0, 0.0, 0.0);
+	//float2 torusRadius = float2(1.5, 0.12);
+	//float sdfTorus = SdfTorus(mul(Rotate3D(XAxis, radians(90.0)), currentRayPosition), torusRadius);
+	//float sdfTorusNot = SdfTorusKnot(currentRayPosition);
+	//float2 torusKnot = float2(min(sdfTorusNot, sdfTorus), MATERIAL_OPACITY);
 	
 	//MandelBulb
-    float sdfMandelbulb = SdfMandelbulb(currentRayPosition, false);
-    float2 mandelbulb = float2(sdfMandelbulb, MATERIAL_OPACITY);
+    //float sdfMandelbulb = SdfMandelbulb(currentRayPosition, false);
+    //float2 mandelbulb = float2(sdfMandelbulb, MATERIAL_OPACITY);
 
 	////Height Map Test
 	//float2 uv = mod(abs(currentRayPosition.xz) * 0.25, 1.0);
@@ -435,7 +574,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 
 
 
-    float2 result = WhichThingAmICloserTo(mandelbulb, mandelbulb);
+    float2 result = WhichThingAmICloserTo(sh, sh);
 
 
 
@@ -1023,7 +1162,7 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 	else if (hitInfo.material == 0.0) {
 		//Cubemap
 		//color = texture(iChannel1, ray.dir).rgb;
-		color = texCube.Sample(sampler0, ray.dir);
+		color = texCube.Sample(sampler0, ray.dir).rgb;
 	}
 	else if (hitInfo.material == MATERIAL_TEST_FAR) {
 		//float3 p = float3(0.0, 0.0, 0.0);
@@ -1080,12 +1219,295 @@ float2 NormalizingCoordinated(in float2 fragCoord, in float2 resolution)
 }
 
 //-------------------------------------------------------------------------------------
+//流体シミュレーション
+float3 FluidSimulation(in float2 uv)
+{
+	//座標系をシミュレーション空間に合わせる
+    uv.y = 1.0f - uv.y;
+
+	//グリッド描画
+    float3 color = COLOR_BLACK;
+    color = float3(0.0, 0.0, IsGridLine(uv * 512.0, float2(16.0, 16.0)));
+
+    bool isUniform = true;
+    bool isSource = true;
+    bool isVortex = false;
+
+    float size = 1.0;
+	#define MeshNum 20	//50やばい　d3dのエラーが出る　resetがだめとかなんとか　処理が重すぎるわけではなさそう
+    #define SIZE 20
+    float delta = size / (float) MeshNum;
+    float alpha = 0.0;
+    float Q_Value = 1.0;
+    float Gamma = 1.0;
+    float flowVelocity = 1.0;
+
+    float Phi[SIZE * SIZE];
+    float Psi[SIZE * SIZE];
+    float VelX[SIZE * SIZE];
+    float VelY[SIZE * SIZE];
+
+	//初期化
+	{
+		for (int i = 0; i < MeshNum; i++)
+		{
+			for (int j = 0; j < MeshNum; j++)
+			{
+				int indx = j * SIZE + i;
+				Phi[indx] = Psi[indx] = VelX[indx] = VelY[indx] = 0.0;
+			}
+		}
+	}
+
+    float3 z = (float3)0;
+    float r2 = 0.0;
+    float rad0 = 0.001;
+    float ang = radians(alpha);
+
+	//シミュレーション
+	{
+		for (int i = 0; i < MeshNum; i++)
+		{
+			z.x = delta * (i - (float)MeshNum * 0.5); //中心のポテンシャルを0に
+
+			for (int j = 0; j < MeshNum; j++)
+			{
+				int indx = j * SIZE + i;
+				z.y = delta * (j - (float)MeshNum * 0.5);
+
+				if (isUniform)
+				{
+					Phi[indx] = flowVelocity * (z.x * cos(ang) + z.y * sin(ang));
+					Psi[indx] = flowVelocity * (z.y * cos(ang) - z.x * sin(ang));
+					VelX[indx] = flowVelocity * cos(ang);
+					VelY[indx] = flowVelocity * sin(ang);
+				}
+
+				//湧き出し（吸い込み）
+				if (isSource)
+				{
+					if (z.x == 0 && z.y == 0)
+					{
+						//原点は対数的特異点
+						z.x = delta / 1000.0;
+						z.y = delta / 1000.0;
+					}
+
+					r2 = dot(z, z);
+					if (r2 < rad0)
+					{
+						r2 = rad0;
+					}
+
+					Phi[indx] += Q_Value * log(r2) / (4.0 * PI);
+					Psi[indx] += Q_Value * atan2(z.y, z.x) / (2.0 * PI);
+					VelX[indx] += Q_Value * z.x / r2 / (2.0 * PI);
+					VelY[indx] += Q_Value * z.y / r2 / (2.0 * PI);
+				}
+
+				//うず
+				if (isVortex)
+				{
+					if (z.x == 0 && z.y == 0)
+					{ //原点は対数的特異点
+						z.x = delta / 100.0;
+						z.y = delta / 100.0;;
+					}
+					r2 = dot(z, z);
+
+					if (r2 < rad0)
+					{
+						r2 = rad0; //中心付近の速度を抑えるため
+					}
+
+					Psi[indx] -= Gamma * (log(r2) / (4.0 * PI));
+					Phi[indx] += Gamma * atan2(z.y, z.x) / (2.0 * PI);
+					VelX[indx] -= Gamma * z.y / r2 / (2.0 * PI);
+					VelY[indx] += Gamma * z.x / r2 / (2.0 * PI);
+				}
+			}
+		}
+	}
+
+	//描画
+    float nLine = 40.0;
+    float range = 2.0;
+
+    float maxP = flowVelocity * range;
+    float minP = -flowVelocity * range;
+    float dp0 = (maxP - minP) / nLine;
+    float pp = 0.0;
+
+	//#TODO uvから該当箇所のみを計算すればよい
+	//0.0 <= uv <= 1.0
+	//#TODO uv 1.0の時ちょっとまずい
+    int indxX = min(uv.x * (float) MeshNum, MeshNum - 1);	//MeshNumにならないようにminを取る
+    int indxY = min(uv.y * (float) MeshNum, MeshNum - 1);
+    float2 uvs[4];	//#TODO 後で書き換える
+	uvs[0] = float2(indxX,		indxY)		/ MeshNum;
+    uvs[1] = float2(indxX,		indxY + 1)	/ MeshNum;
+    uvs[2] = float2(indxX + 1,	indxY + 1)	/ MeshNum;
+    uvs[3] = float2(indxX + 1,	indxY)		/ MeshNum;
+
+	//#TODO インデックスがはみ出てるかをチェック; //#TODO 端が怪しい
+    float values[4];
+    values[0] = Phi[indxY * SIZE + indxX];
+    values[1] = Phi[min((indxY + 1), SIZE - 1) * SIZE + indxX];
+    values[2] = Phi[min((indxY + 1), SIZE - 1) * SIZE + min((indxX + 1), SIZE - 1)];
+    values[3] = Phi[indxY * SIZE + min((indxX + 1), SIZE - 1)];
+
+	//物理量を正規化
+	//判定側でうまく吸収出来れば不要
+	//#TODO ちゃんとできてないっぽい？
+    for (int i = 0; i < 4; i++){
+        values[i] = (values[i] + delta * (float) MeshNum * 0.5) / (delta * (float) MeshNum);
+    }
+
+	//各値を距離で加重平均
+    float lengths[4];
+	{
+		for (int i = 0; i < 4; i++) {
+			lengths[i] = max(1.0 / MeshNum - length(uv - uvs[i]), 0.0);	//ちょっと怪しいけどいい感じの連続値になる
+		}
+	}
+    float lengthSum = lengths[0] + lengths[1] + lengths[2] + lengths[3];
+
+    float value = 0.0;
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			value += values[i] * lengths[i];
+		}
+	}
+    value /= lengthSum;
+
+	//グラデーション
+    color = float3(value, 0.0, 0.0);
+
+	//#TODO HSV
+
+	////塗分け　いまいち
+ //   if(value < 0.5)
+ //   {
+ //       color = float3(0.0, value, 0.0);
+ //   }
+ //   else
+ //   {
+ //       color = float3(value, 0.0, 0.0);
+ //   }
+
+
+	////流線を引きたいがうまくいかない…
+	////加重平均しているせいか…
+	//for(float deltaValue = -2.0; deltaValue <= 2.0; deltaValue += 0.1){
+ //       if(abs(deltaValue - value) < 0.00001)
+ //       {
+ //           color = float3(1.0, 0.0, 0.0);
+	//		break;
+ //       }
+ //       else
+ //       {
+ //           color = (float3)1.0;
+ //       }
+ //   }
+
+
+	//試行錯誤
+ //   float intDp = dp0;
+	//float count = 0.0f;
+ //   while (intDp <= 1.0)
+ //   {
+ //       intDp *= 10.0;
+	//	count += 1.0;
+ //   }
+
+
+	//if (abs(frac(abs(value * 10.0f)) / 10.0f - dp0) < 0.04)	//不完全
+	//dp0 0.1 -0.5 <= value <= 0.5
+    //if(frac(abs(value * pow(10.0f, count))) / pow(10.0f, count) < 0.0001)
+    //if(frac(abs(value * 10.0f)) - 0.1 < 0.001)
+ //   if(
+	//{
+ //       color = float3(1.0, 0.0, 0.0);
+ //   }
+ //   else
+ //   {
+ //       color = (float3) 1.0;
+ //   }
+
+    //color = float3(frac(abs(value * intDp)), 0.0, 0.0);
+    //color = float3(frac(abs(value)), 0.0, 0.0);
+    //color = float3(value, 0.0, 0.0);
+    //color = float3(values[3], 0.0, 0.0);
+
+        return color;
+        }
+
+//----------------------------------------------------------------------------------------------
+#define DEBUG_RENDER_MODE_NONE 0.0
+#define DEBUG_RENDER_MODE_POS_X 1.0
+#define DEBUG_RENDER_MODE_POS_Y 2.0
+#define DEBUG_RENDER_MODE_POS_Z 3.0
+#define DEBUG_RENDER_MODE_NORMAL 4.0
+#define DEBUG_RENDER_MODE_SCREEN_UV 5.0
+#define DEBUG_RENDER_MODE_DEPTH 6.0
+
+float3 DebugNormal(float3 positionOfHit, float3 normalOfSurface)
+{
+	return float3(normalOfSurface.x, normalOfSurface.y, normalOfSurface.z);
+}
+
+float3 DebugRenderMode(float3 color, HitInfo hitInfo, in float2 fragCoord, float mode)
+{
+	if (mode == DEBUG_RENDER_MODE_POS_X) {
+		//距離の値
+		float scale = 1.0;
+		color = float3(abs(hitInfo.pos.x) * scale, 0.0, 0.0);
+	}
+	else if (mode == DEBUG_RENDER_MODE_POS_Y) {
+		//距離の値
+		float scale = 1.0;
+		color = float3(0.0, abs(hitInfo.pos.y) * scale, 0.0);
+	}
+	else if (mode == DEBUG_RENDER_MODE_POS_Z) {
+		//距離の値
+		float scale = 1.0;
+		color = float3(0.0, 0.0, abs(hitInfo.pos.z) * scale);
+	}
+	else if (mode == DEBUG_RENDER_MODE_NORMAL) {
+		//法線
+		if (hitInfo.material == 0.0) {
+			color = float3(0.0, 0.0, 0.0);
+		}
+		else {
+			color = DebugNormal(hitInfo.pos, hitInfo.normal);
+		}
+	}
+	else if (mode == DEBUG_RENDER_MODE_SCREEN_UV) {
+		//Screen空間のUV　よく忘れるので
+		//float2 uv = fragCoord.xy / iResolution.xy * float2(1, -1);
+		//float2 uv = NormalizingCoordinated(fragCoord.xy);
+		//color = float3(abs(uv.rg), 0.0);
+		//color = float3(uv.rg, 0.0);
+	}
+	else if (mode == DEBUG_RENDER_MODE_DEPTH) {
+		//深度
+		//正規化用パラメータはてきとー
+		float far = 4.0f;
+		float near = 2.01f;
+		color = float3((hitInfo.distance - near) / (far - near), 0.0, 0.0);
+	}
+
+	return color;
+}
+
+//-------------------------------------------------------------------------------------
 PSInput VSMain(VSInput input)
 {
-	PSInput	result;
+    PSInput result;
 
-	result.position = input.pos;
-	result.uv = float2(input.uv.x, 1.0f - input.uv.y);	//ShaderToyの座標系に合わせた　もちろんcppの頂点側の初期値で調整してもよい
+    result.position = input.pos;
+    result.uv = float2(input.uv.x, 1.0f - input.uv.y); //ShaderToyの座標系に合わせた　もちろんcppの頂点側の初期値で調整してもよい
 
 	return result;
 }
@@ -1103,9 +1525,8 @@ float4 PSMain(PSInput input) : SV_TARGET
 	//float angle = 0.2 * g_time; float3 camPos = float3(10.0 * sin(angle), 2.5 * cos(0.4 * angle), 10.0 * cos(angle));
 
 	//rotate camera
-	//float3 camPos = float3(1.5 * sin(1.5 * g_time), 1.0, 6.0);
-
-	float3 camPos = float3(0., 1.0, 2.);
+	//float3 camPos = float3(1.5 * sin(1.5 * g_time), 2.0, 6.0);
+	float3 camPos = float3(0., 1.0, 10.);
 	float3 camLookAt = float3(0., 0, 0.);
 	float3x3 eyeTransformationMtx = CalculateEyeRayTransformationMatrix(camPos, camLookAt, 0.);
 
@@ -1128,11 +1549,15 @@ float4 PSMain(PSInput input) : SV_TARGET
 	HitInfo hitInfo = CheckRayHit(ray);
 	float3 color = ColorTheWorld(hitInfo, ray, scene);
 
+	//流体シミュレーションテスト
+	//全然うまくいかないし飽きたのでやめ
+    //color = FluidSimulation(input.uv);
+
 	//MSAAもどき　4サンプル
 	float epsilon = 0.001;
 	//color = MSAA(scene, ray, color, hitInfo, epsilon);
 
-	//color = float4(DebugRenderMode(color, hitInfo, color, DEBUG_RENDER_MODE_NONE), 1.0);
+	color = DebugRenderMode(color, hitInfo, color, DEBUG_RENDER_MODE_NORMAL);
 	return float4(color, 0.0);
 	//return tex0.Sample(sampler0, input.uv);
 	//return tex1.Sample(sampler0, input.uv);
