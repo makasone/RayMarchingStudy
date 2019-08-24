@@ -418,7 +418,7 @@ float SH_3_4(in float3 s) { float3 n = s.zxy; return -k08 * n.x*(5.0*n.z*n.z - 1
 float SH_3_5(in float3 s) { float3 n = s.zxy; return  k10 * n.z*(n.x*n.x - n.y*n.y); }
 float SH_3_6(in float3 s) { float3 n = s.zxy; return -k06 * n.x*(n.x*n.x - 3.0*n.y*n.y); }
 
-float3 map(in float3 p)
+float3 SHMap(in float3 p)
 {
 	float3 p00 = p - float3(0.00, 2.5, 0.0);
 	float3 p01 = p - float3(-1.25, 1.0, 0.0);
@@ -524,7 +524,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 
 	//Spherical Harmonics
 	float3 shPos = float3(0.0, 0.0, 0.0);
-	float3 sdfSH = map(currentRayPosition);
+	float3 sdfSH = SHMap(currentRayPosition);
 	float2 sh = float2(sdfSH.x, MATERIAL_OPACITY);
 
 	//TorusKnot
@@ -746,6 +746,7 @@ HitInfo CheckRayHit(in Ray ray)
 	float finalDistanceTraveledByRay = -1.;
 	float finalID = -1.;
 	float3 rayPos = float3(0.0, 0.0, 0.0);
+	float param = 0.3;
 
 	for (int i = 0; i < HOW_MANY_STEPS_CAN_OUR_RAY_TAKE; i++) {
 
@@ -792,7 +793,7 @@ HitInfo CheckRayHit(in Ray ray)
 
 		// WOW!
 
-		totalDistanceTraveledByRay += distanceToThingsInTheWorld;
+		totalDistanceTraveledByRay += distanceToThingsInTheWorld * param;
 	}
 
 	// if we hit something set the finalDirastnce traveled by
@@ -1460,17 +1461,14 @@ float3 DebugNormal(float3 positionOfHit, float3 normalOfSurface)
 float3 DebugRenderMode(float3 color, HitInfo hitInfo, in float2 fragCoord, float mode)
 {
 	if (mode == DEBUG_RENDER_MODE_POS_X) {
-		//距離の値
 		float scale = 1.0;
 		color = float3(abs(hitInfo.pos.x) * scale, 0.0, 0.0);
 	}
 	else if (mode == DEBUG_RENDER_MODE_POS_Y) {
-		//距離の値
 		float scale = 1.0;
 		color = float3(0.0, abs(hitInfo.pos.y) * scale, 0.0);
 	}
 	else if (mode == DEBUG_RENDER_MODE_POS_Z) {
-		//距離の値
 		float scale = 1.0;
 		color = float3(0.0, 0.0, abs(hitInfo.pos.z) * scale);
 	}
@@ -1493,8 +1491,8 @@ float3 DebugRenderMode(float3 color, HitInfo hitInfo, in float2 fragCoord, float
 	else if (mode == DEBUG_RENDER_MODE_DEPTH) {
 		//深度
 		//正規化用パラメータはてきとー
-		float far = 4.0f;
-		float near = 2.01f;
+		float far = 15.0f;
+		float near = 8.01f;
 		color = float3((hitInfo.distance - near) / (far - near), 0.0, 0.0);
 	}
 
@@ -1526,8 +1524,8 @@ float4 PSMain(PSInput input) : SV_TARGET
 
 	//rotate camera
 	//float3 camPos = float3(1.5 * sin(1.5 * g_time), 2.0, 6.0);
-	float3 camPos = float3(0., 1.0, 10.);
-	float3 camLookAt = float3(0., 0, 0.);
+	float3 camPos = float3(0.0, 0.0, 10.0);
+	float3 camLookAt = float3(0., 0., 0.);
 	float3x3 eyeTransformationMtx = CalculateEyeRayTransformationMatrix(camPos, camLookAt, 0.);
 
 	//scene
@@ -1543,7 +1541,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 	// the 2. at the end is the 'lens length' . I don't know how to best describe this,
 	// but once the full scene is built, tryin playing with it to understand inherently how it works
 	float3 rayComingOutOfEyeDirection = normalize(mul(eyeTransformationMtx, float3(inScreenPos.xy, 2.0f)));
-
+	
 	//通常描画
 	Ray ray = { camPos, rayComingOutOfEyeDirection };
 	HitInfo hitInfo = CheckRayHit(ray);
@@ -1557,7 +1555,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 	float epsilon = 0.001;
 	//color = MSAA(scene, ray, color, hitInfo, epsilon);
 
-	color = DebugRenderMode(color, hitInfo, color, DEBUG_RENDER_MODE_NORMAL);
+	color = DebugRenderMode(color, hitInfo, inScreenPos, DEBUG_RENDER_MODE_NONE);
 	return float4(color, 0.0);
 	//return tex0.Sample(sampler0, input.uv);
 	//return tex1.Sample(sampler0, input.uv);
