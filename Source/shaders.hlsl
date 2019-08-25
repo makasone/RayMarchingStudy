@@ -1219,6 +1219,49 @@ float2 NormalizingCoordinated(in float2 fragCoord, in float2 resolution)
 	//return fragCoord / min(iResolution.x, iResolution.y);    
 }
 
+float3 MSAA(in Scene scene, in float3x3 eyeTransformationMtx, in float2 inptutUv, in float2 screenRatio, in float3 camPos, in float3 orgColor, in float epsilon, in int AA)
+{
+	float3 result = orgColor;
+	for (int i = 0; i < AA; i++) {
+		for (int j = 0; j < AA; j++) {
+			float2 inScreenPos = NormalizingCoordinated(inptutUv - epsilon * (float(AA - 1) * 0.5).xx, screenRatio);
+			float3 dir = normalize(mul(eyeTransformationMtx, float3(inScreenPos, 2.0f)));
+			Ray ray = { camPos, dir };
+			HitInfo hitInfo = CheckRayHit(ray);
+			result += ColorTheWorld(hitInfo, ray, scene);
+		}
+	}
+
+	return result / (float(AA * AA) + 1.0f);
+
+	//float2 inScreenPosLeftUp = NormalizingCoordinated(inptutUv + float2(epsilon, epsilon), screenRatio);
+	//float3 leftupDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosLeftUp, 2.0f)));
+	//Ray leftUpRay = { camPos, leftupDir };
+	//HitInfo hitInfo1 = CheckRayHit(leftUpRay);
+	//float3 color1 = ColorTheWorld(hitInfo1, leftUpRay, scene);
+
+	//float2 inScreenPosRightUp = NormalizingCoordinated(inptutUv + float2(-epsilon, epsilon), screenRatio);
+	//float3 rightupDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosRightUp, 2.0f)));
+	//Ray rightUpRay = { camPos, rightupDir };
+	//HitInfo hitInfo2 = CheckRayHit(rightUpRay);
+	//float3 color2 = ColorTheWorld(hitInfo2, rightUpRay, scene);
+
+	//float2 inScreenPosLeftDown = NormalizingCoordinated(inptutUv + float2(epsilon, -epsilon), screenRatio);
+	//float3 leftDownDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosLeftDown, 2.0f)));
+	//Ray leftDownRay = { camPos, leftDownDir };
+	//HitInfo hitInfo3 = CheckRayHit(leftDownRay);
+	//float3 color3 = ColorTheWorld(hitInfo3, leftDownRay, scene);
+
+	//float2 inScreenPosRightDown = NormalizingCoordinated(inptutUv + float2(-epsilon, -epsilon), screenRatio);
+	//float3 rightDownDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosRightDown, 2.0f)));
+	//Ray rightDownRay = { camPos, rightDownDir };
+	//HitInfo hitInfo4 = CheckRayHit(rightDownRay);
+	//float3 color4 = ColorTheWorld(hitInfo4, rightDownRay, scene);
+
+	//return (orgColor + color1 + color2 + color3 + color4) * 0.2;
+}
+
+
 //-------------------------------------------------------------------------------------
 //流体シミュレーション
 float3 FluidSimulation(in float2 uv)
@@ -1442,7 +1485,7 @@ float3 FluidSimulation(in float2 uv)
     //color = float3(values[3], 0.0, 0.0);
 
         return color;
-        }
+}
 
 //----------------------------------------------------------------------------------------------
 #define DEBUG_RENDER_MODE_NONE 0.0
@@ -1511,13 +1554,9 @@ PSInput VSMain(VSInput input)
 }
 
 float4 PSMain(PSInput input) : SV_TARGET
-{
-	//#define WINDOW_WIDTH	1280
-	//#define WINDOW_HEIGHT	720
-	//float	g_aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
-	//float2 inScreenPos = NormalizingCoordinated(input.uv, float2(1, 1/g_aspectRatio)) - float2(0.0, 0.5);
-	
-	float2 inScreenPos = NormalizingCoordinated(input.uv, float2(1, 1));
+{	
+	float2 screenRatio = float2(1, 1);// ?
+	float2 inScreenPos = NormalizingCoordinated(input.uv, screenRatio);
 
 	//move camera
 	//float angle = 0.2 * g_time; float3 camPos = float3(10.0 * sin(angle), 2.5 * cos(0.4 * angle), 10.0 * cos(angle));
@@ -1551,10 +1590,12 @@ float4 PSMain(PSInput input) : SV_TARGET
 	//全然うまくいかないし飽きたのでやめ
     //color = FluidSimulation(input.uv);
 
-	//MSAAもどき　4サンプル
-	float epsilon = 0.001;
-	//color = MSAA(scene, ray, color, hitInfo, epsilon);
+	//MSAAもどき
+	float epsilon = 0.0005;
+	int AA = 2;
+	//color = MSAA(scene, eyeTransformationMtx, input.uv, screenRatio, camPos, color, epsilon, AA);
 
+	//デバッグ描画
 	color = DebugRenderMode(color, hitInfo, inScreenPos, DEBUG_RENDER_MODE_NONE);
 	return float4(color, 0.0);
 	//return tex0.Sample(sampler0, input.uv);
