@@ -59,6 +59,7 @@ struct DirectionalLight
 struct Scene
 {
 	DirectionalLight dirLight;
+	float3 cameraPos;
 };
 
 //----------------------------------------------------------------------------------------------
@@ -293,6 +294,23 @@ float SdfBox(float3 currentRayPosition, float3 pos, float3 size)
 	return distanceToBoxSurface;
 }
 
+float SdfRoundBox(float3 currentRayPosition, float3 pos, float3 size, float r)
+{
+	float3 adjustedRayPosition = currentRayPosition - pos;
+
+	// finally we get the distance to the box surface.
+	float3 distanceVec = abs(adjustedRayPosition) - size;
+	float maxDistance = max(distanceVec.x, max(distanceVec.y, distanceVec.z));
+	float dist = min(maxDistance, 0.0); //箱の中にカメラがある場合？たぶん
+	float distanceToBoxSurface = dist + length(max(distanceVec, 0.0)) - r;
+	return distanceToBoxSurface;
+}
+
+float SdfPlane(float3 pos, float3 norm, float hoge)
+{
+	return dot(pos, norm) * hoge;
+}
+
 float SdfTorus(float3 pos, float2 radius)
 {
 	float2 r = float2(length(pos.xy) - radius.x, pos.z);
@@ -510,17 +528,31 @@ float2 WhichThingAmICloserTo(float2 thing1, float2 thing2) {
 HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 {
 	//Sphere
-	float radius = 0.9;
+	float radius = 0.5;
 	float3 spherePos = float3(0.0, 0.0, 0.0);
 	float sdfSphere = SdfSphere(currentRayPosition, radius, spherePos);
 	float2 sphere = float2(sdfSphere, MATERIAL_OPACITY);
 
+	float sdfRepeatSphere = SdfSphere(Repeat(currentRayPosition, float3(2, 2, 2)), radius, spherePos);
+	float2 repeatSphere = float2(sdfRepeatSphere, MATERIAL_OPACITY);
+
 	//Box
-	float3 boxPosition = float3(0.0, 1.0, 0.0);
+	float3 boxPosition = float3(0.0, 0.0, 0.0);
 	float3 boxSize = float3(0.5, 0.5, 0.5);
 	float sdfBox = SdfBox(mul(Rotate3D(YAxis, radians(45.0)), currentRayPosition), boxPosition, boxSize);
-	//float sdfBox = SdfRoundBox(Rotate3D(YAxis, radians(45.0)) * currentRayPosition, boxPosition, boxSize, 0.01);
 	float2 box = float2(sdfBox, MATERIAL_OPACITY);
+	
+	//RepeatBox
+	float3 repeatBoxPosition = float3(0.0, 0.0, 0.0);
+	float3 repeatBoxSize = float3(0.5, 0.5, 0.5);
+	float sdfRepeatBox = SdfBox(Repeat(mul(Rotate3D(YAxis, radians(45.0)), currentRayPosition), float3(3, 1.1, 4)), repeatBoxPosition, repeatBoxSize);
+	float2 repeatBox = float2(sdfRepeatBox, MATERIAL_OPACITY);
+
+	//Plane
+	float3 planePosition = float3(0.0, 0.0, 0.0);
+	float3 planeSize = float3(10.0, 0.1, 10.0);
+	float sdfPlane = SdfBox(currentRayPosition, planePosition, planeSize);
+	float2 plane = float2(sdfPlane, MATERIAL_OPACITY);
 
 	//Spherical Harmonics
 	float3 shPos = float3(0.0, 0.0, 0.0);
@@ -538,7 +570,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
     //float sdfMandelbulb = SdfMandelbulb(currentRayPosition, false);
     //float2 mandelbulb = float2(sdfMandelbulb, MATERIAL_OPACITY);
 
-	////Height Map Test
+	//Height Map Test
 	//float2 uv = mod(abs(currentRayPosition.xz) * 0.25, 1.0);
 	//float4 hightMap = texture(iChannel0, uv);
 	//float heightFactor = 1.0;
@@ -574,7 +606,7 @@ HitInfo MapTheWorld(in Ray ray, in float3 currentRayPosition)
 
 
 
-    float2 result = WhichThingAmICloserTo(sh, sh);
+    float2 result = WhichThingAmICloserTo(plane, repeatBox);
 
 
 
@@ -702,7 +734,7 @@ static const float HOW_CLOSE_IS_CLOSE_ENOUGH = 0.001;
 // This is basically how big our scene is. each ray will be shot forward
 // until it reaches this distance. the smaller it is, the quicker the 
 // ray will reach the edge, which should help speed up this function
-static const float FURTHEST_OUR_RAY_CAN_REACH = 20.;
+static const float FURTHEST_OUR_RAY_CAN_REACH = 50.;
 
 // This is how may steps our ray can take. Hopefully for this
 // simple of a world, it will very quickly get to the 'close enough' value
@@ -746,7 +778,7 @@ HitInfo CheckRayHit(in Ray ray)
 	float finalDistanceTraveledByRay = -1.;
 	float finalID = -1.;
 	float3 rayPos = float3(0.0, 0.0, 0.0);
-	float param = 0.3;
+	float param = 0.99;
 
 	for (int i = 0; i < HOW_MANY_STEPS_CAN_OUR_RAY_TAKE; i++) {
 
@@ -810,7 +842,7 @@ HitInfo CheckRayHit(in Ray ray)
 
 	HitInfo info;
 	info.ray = ray;
-	info.distance = finalDistanceTraveledByRay;
+	info.distance = finalID != 0.0 ? finalDistanceTraveledByRay : 10000.0;
 	info.pos = rayPos;
 	info.normal = GetNormalOfSurface(ray, rayPos, epsilon);
 	//info.normal = GetNormalOfSurface_byDf(rayPos);
@@ -1164,6 +1196,7 @@ float3 ColorTheWorld(HitInfo hitInfo, Ray ray, Scene scene)
 		//Cubemap
 		//color = texture(iChannel1, ray.dir).rgb;
 		color = texCube.Sample(sampler0, ray.dir).rgb;
+		hitInfo.distance = 10000.0f;
 	}
 	else if (hitInfo.material == MATERIAL_TEST_FAR) {
 		//float3 p = float3(0.0, 0.0, 0.0);
@@ -1219,12 +1252,79 @@ float2 NormalizingCoordinated(in float2 fragCoord, in float2 resolution)
 	//return fragCoord / min(iResolution.x, iResolution.y);    
 }
 
-float3 MSAA(in Scene scene, in float3x3 eyeTransformationMtx, in float2 inptutUv, in float2 screenRatio, in float3 camPos, in float3 orgColor, in float epsilon, in int AA)
+//-------------------------------------------------------------------------------------
+#define FOG_NONE 0
+#define FOG_SIMPLE 1
+#define FOG_HEIGHT 2
+float3 FogEffect(float3 orgColor, float strength, float3 fogColor, HitInfo hitInfo, Scene scene)
+{
+	//if(FOG_SIMPLE == 1)
+	//最適化前
+	//float attenuation = 0.1;
+	//float3 fogColor = float3(0.5, 0.2, 0.5);
+	//float lost = 1.0 - pow(1.0 - attenuation, hitInfo.distance);
+	//color = lerp(color, fogColor, lost);
+
+	//float lost = exp(-strength * hitInfo.distance);
+	//return lerp(fogColor, orgColor, lost);
+
+
+	//高さを考慮
+	//float endHeight = 0.0f;
+	//float t = 0.0f;
+	//float density = 0.125f;
+	//float height = scene.cameraPos.y - hitInfo.pos.y;
+
+	//if (hitInfo.pos.y < endHeight)
+	//{
+	//	if (scene.cameraPos.y > endHeight)
+	//	{
+	//		t = (endHeight - hitInfo.pos.y) / height;
+	//	}
+	//	else {
+	//		t = 1.0f;
+	//	}
+	//}
+	//else {
+	//	if (scene.cameraPos.y < endHeight){
+	//		t = (scene.cameraPos.y - endHeight) / height;
+	//	}
+	//	else{
+	//		t = 0.0f;
+	//	}
+	//}
+	//
+	//float fog = exp(-density * hitInfo.distance * t);
+	//return lerp(fogColor, orgColor, fog);
+
+	//高い場所ほど薄く
+	float densityAttenuation = 0.125f;	//小さいほど早く薄くなる
+	float densityY0 = 0.5f;	//高さ0での初期値
+
+	float height = scene.cameraPos.y - hitInfo.pos.y;
+	float ret = 0.0f;
+	float tmp = hitInfo.distance * densityY0 * exp(-densityAttenuation * hitInfo.pos.y);
+	if (height == 0.0) // 単純な均一フォグ
+	{
+		ret = exp(-tmp);
+	}
+	else
+	{
+		float kvy = densityAttenuation * height;
+		ret = exp(tmp / kvy * (exp(-kvy) - 1.0));
+	}
+
+	return lerp(fogColor, orgColor, ret);
+}
+
+//-------------------------------------------------------------------------------------
+float3 SSAA(in Scene scene, in float3x3 eyeTransformationMtx, in float2 inptutUv, in float2 screenRatio, in float3 camPos, in float3 orgColor, in float epsilon, in int AA)
 {
 	float3 result = orgColor;
+	float coeff = AA % 2 == 0 ? (AA - 1) * 0.5 : floor(AA * 0.5);
 	for (int i = 0; i < AA; i++) {
 		for (int j = 0; j < AA; j++) {
-			float2 inScreenPos = NormalizingCoordinated(inptutUv - epsilon * (float(AA - 1) * 0.5).xx, screenRatio);
+			float2 inScreenPos = NormalizingCoordinated(inptutUv + epsilon * float2(i - coeff, j - coeff) * 2.0, screenRatio);
 			float3 dir = normalize(mul(eyeTransformationMtx, float3(inScreenPos, 2.0f)));
 			Ray ray = { camPos, dir };
 			HitInfo hitInfo = CheckRayHit(ray);
@@ -1233,32 +1333,6 @@ float3 MSAA(in Scene scene, in float3x3 eyeTransformationMtx, in float2 inptutUv
 	}
 
 	return result / (float(AA * AA) + 1.0f);
-
-	//float2 inScreenPosLeftUp = NormalizingCoordinated(inptutUv + float2(epsilon, epsilon), screenRatio);
-	//float3 leftupDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosLeftUp, 2.0f)));
-	//Ray leftUpRay = { camPos, leftupDir };
-	//HitInfo hitInfo1 = CheckRayHit(leftUpRay);
-	//float3 color1 = ColorTheWorld(hitInfo1, leftUpRay, scene);
-
-	//float2 inScreenPosRightUp = NormalizingCoordinated(inptutUv + float2(-epsilon, epsilon), screenRatio);
-	//float3 rightupDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosRightUp, 2.0f)));
-	//Ray rightUpRay = { camPos, rightupDir };
-	//HitInfo hitInfo2 = CheckRayHit(rightUpRay);
-	//float3 color2 = ColorTheWorld(hitInfo2, rightUpRay, scene);
-
-	//float2 inScreenPosLeftDown = NormalizingCoordinated(inptutUv + float2(epsilon, -epsilon), screenRatio);
-	//float3 leftDownDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosLeftDown, 2.0f)));
-	//Ray leftDownRay = { camPos, leftDownDir };
-	//HitInfo hitInfo3 = CheckRayHit(leftDownRay);
-	//float3 color3 = ColorTheWorld(hitInfo3, leftDownRay, scene);
-
-	//float2 inScreenPosRightDown = NormalizingCoordinated(inptutUv + float2(-epsilon, -epsilon), screenRatio);
-	//float3 rightDownDir = normalize(mul(eyeTransformationMtx, float3(inScreenPosRightDown, 2.0f)));
-	//Ray rightDownRay = { camPos, rightDownDir };
-	//HitInfo hitInfo4 = CheckRayHit(rightDownRay);
-	//float3 color4 = ColorTheWorld(hitInfo4, rightDownRay, scene);
-
-	//return (orgColor + color1 + color2 + color3 + color4) * 0.2;
 }
 
 
@@ -1563,7 +1637,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 
 	//rotate camera
 	//float3 camPos = float3(1.5 * sin(1.5 * g_time), 2.0, 6.0);
-	float3 camPos = float3(0.0, 0.0, 10.0);
+	float3 camPos = float3(0.0, 15.0, 10.0);
 	float3 camLookAt = float3(0., 0., 0.);
 	float3x3 eyeTransformationMtx = CalculateEyeRayTransformationMatrix(camPos, camLookAt, 0.);
 
@@ -1571,7 +1645,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 	//DirectionalLight dirLight = DirectionalLight(normalize(float3(1., 1., 1.)), float3(1.0, 1.0, 1.0), 1.0);
 	//Scene scene = Scene(dirLight);
 	DirectionalLight dirLight = { normalize(float3(1., 1., 1.)), float3(1.0, 1.0, 1.0), 1.0 };
-	Scene scene = { dirLight };
+	Scene scene = { dirLight, camPos };
 
 	// Here we get the actual ray that goes out of the eye
 	// and through the individual pixel! This basically the only thing
@@ -1590,10 +1664,15 @@ float4 PSMain(PSInput input) : SV_TARGET
 	//全然うまくいかないし飽きたのでやめ
     //color = FluidSimulation(input.uv);
 
-	//MSAAもどき
+	//SSAA
 	float epsilon = 0.0005;
 	int AA = 2;
-	//color = MSAA(scene, eyeTransformationMtx, input.uv, screenRatio, camPos, color, epsilon, AA);
+	color = SSAA(scene, eyeTransformationMtx, input.uv, screenRatio, camPos, color, epsilon, AA);
+
+	//Post Process
+	float strength = 0.1;
+	float3 fogColor = float3(0.5, 0.2, 0.5);
+	color = FogEffect(color, strength, fogColor, hitInfo, scene);
 
 	//デバッグ描画
 	color = DebugRenderMode(color, hitInfo, inScreenPos, DEBUG_RENDER_MODE_NONE);
